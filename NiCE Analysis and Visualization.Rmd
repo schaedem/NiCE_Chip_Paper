@@ -1,0 +1,963 @@
+---
+title: "NiCE Analysis and Visualization"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r load packages}
+require(tidyverse)
+
+##data manipulation and reformatting
+require(tidyverse) ##includes ggplot2, tidyr, dplyr, and others
+require(reshape2) #melt function
+require(magrittr)
+require(stringr)
+require(dplyr)
+require(lubridate)
+
+##data visualization
+require(ggpmisc) ###sts_poly_eq
+require(ggthemes) ##to change the look of graphs
+require(cowplot) ##for plot_grid
+require(ggrepel) ##for pretty labels
+library(circlize)
+circos.par("track.height" = 0.4)
+library(ggcorrplot)
+library(GGally)
+library(ggpubr) #for ggarrange() and stat_pvalue_manual
+library(ellipse)
+library(RColorBrewer)
+library(PNWColors)
+library(corrplot)
+library(lmerTest)
+library(lme4)
+library(nlme)
+
+```
+
+```{r read data}
+setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/final_data")
+nice_data <- read_csv("final_nice_std_data.csv")%>%
+  mutate(test_conc1 = log_conc - log_conc_16S) %>%
+  mutate(test_conc2 = log_conc/log_conc_16S) 
+assay_list <- read_csv("assay_list.csv") %>%
+  mutate(primer_pair = paste(primer_F, primer_R, sep= " / "),
+         gene_org =  paste(target_gene, target_group, sep = "-")) 
+
+names(nice_data)
+
+nice_data_new <- nice_data %>%
+  select(-c(target_gene, target_group, process, pathway, primer_F, primer_R)) %>%
+  merge(assay_list, by = "assay") %>%
+  mutate(month = ifelse(timepoint == 1 | timepoint==2, "01_Sept/Oct",
+                        ifelse(timepoint == 3 | timepoint == 4, "02_Nov/Dec",
+                               "03_Jan/Feb"))) %>%
+  mutate(month = as.factor(month))
+
+levels(nice_data_new$month) <- c("Sept/Oct", "Nov/Dec", "Jan/Feb")
+
+#add specific collection dates for plotting purposes
+setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/metadata")
+dates <- read_csv("NiCE_date_table.csv") %>%
+  select(-c(month, year))
+head(dates)
+
+nice_with_dates <- nice_data_new %>%
+  merge(dates, by = c("location", "timepoint"))
+
+meta <- read_csv("SNC_metadata_2020.csv") %>%
+  select(c("sample", "block"))
+head(meta)
+
+nice_final <- nice_with_dates %>%
+  merge(meta, by="sample") %>%
+  mutate(date = lubridate::mdy(date))
+head(nice_final)
+  
+karama_data <- nice_final %>%
+  filter(location=="Karama")
+
+rubona_data <- nice_final %>%
+  filter(location=="Rubona")
+
+get_mono_trt <- function(dat) {
+  mono_dat <- dat %>%
+      filter(treatment == "Brachiaria cv. Mulato II" | 
+                  treatment == "maize monoculture" |
+                  treatment == "Napier grass" |
+                  treatment == "Desmodium distortum")
+  return(mono_dat)
+}
+
+karama_mono_dat <- get_mono_trt(karama_data)
+rubona_mono_dat <- get_mono_trt(rubona_data)
+
+get_inter_trt <- function(dat) {
+  inter_dat <- dat %>%
+   filter(treatment == "Brachiaria + Desmodium" |
+           treatment == "Maize + Desmodium" |
+              treatment == "Napier + Desmodium")
+  return(inter_dat)
+}
+
+karama_inter_dat <- get_inter_trt(karama_data) 
+
+rubona_inter_dat <- get_inter_trt(rubona_data)
+
+
+#nitrification data
+karama_mono_nit <- karama_mono_dat %>%
+  filter(pathway=="nitrification")
+karama_inter_nit <- karama_inter_dat %>%
+  filter(pathway=="nitrification")
+rubona_mono_nit <- rubona_mono_dat %>%
+  filter(pathway=="nitrification")
+rubona_inter_nit <- rubona_inter_dat %>%
+  filter(pathway=="nitrification")
+
+
+#denitrification data
+karama_mono_denit <- karama_mono_dat %>%
+  filter(pathway=="denitrification")
+rubona_mono_denit <- rubona_mono_dat %>%
+  filter(pathway=="denitrification")
+karama_inter_denit <- karama_inter_dat %>%
+  filter(pathway=="denitrification")
+rubona_inter_denit <- rubona_inter_dat %>%
+  filter(pathway=="denitrification")
+
+
+
+
+```
+
+```{r create matrix}
+
+nice_final_mat <- nice_final %>%
+  select(sample, assay, adj_log_std_conc)
+
+mat_nice_final <- as.matrix(nice_final_mat)
+
+write.table(mat_nice_final, file="nice_matrix.Rdata")
+
+
+```
+
+
+```{r regular histogram}
+
+plot_all_data_histogram <- function(location_dat) {
+  
+  plot <- ggplot(data = location_dat) +
+    geom_histogram(mapping = aes(x=adj_log_std_conc, fill = primer_pair),
+    position = "dodge") 
+  
+  return(plot)
+}
+
+karama_all_hist <- plot_all_data_histogram(karama_data) + ggtitle("Karama")
+rubona_all_hist <- plot_all_data_histogram(rubona_data) + ggtitle("Rubona")
+
+
+plot_all_data_gene_histogram <- function(location_data) {
+  plot <- ggplot(data=location_data) +
+    geom_histogram(mapping = aes(x=adj_log_std_conc, fill = target_gene),
+    position = "dodge") 
+  
+}
+
+karama_all_gene_hist <- plot_all_data_gene_histogram(karama_data) + ggtitle("Karama")
+rubona_all_gene_hist <- plot_all_data_gene_histogram(rubona_data) + ggtitle("Rubona")
+
+grouped_bar_chart_month <- function(location_data) {
+  plot <- ggplot(location_data, aes(fill=month, y=adj_log_std_conc,
+                                  x=target_gene, group=month)) + 
+  geom_bar(position="dodge", stat="identity") +
+  theme(
+    axis.title.x = element_blank(),
+    panel.background = element_rect(fill = "white", colour = "white"),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    panel.ontop = FALSE,
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_text(size= 12, angle = 45),
+    legend.title = element_blank()
+    ) +
+    ylab("log(gene quantity)/log(total 16S)")
+}
+
+rubona_bar_chart_month <- grouped_bar_chart_month(rubona_data) + ggtitle("Rubona")
+karama_bar_chart_month <- grouped_bar_chart_month(karama_data) + ggtitle("Karama")
+
+both_month_bar <- ggarrange(rubona_bar_chart_month, karama_bar_chart_month)
+
+
+#grouped by timepoint
+grouped_bar_chart_timepoint <- function(location_data) {
+  plot <- ggplot(location_data, aes(fill=timepoint, y=adj_log_std_conc, x=target_gene, group=timepoint)) + 
+  geom_bar(position="dodge", stat="identity") +
+  theme_cowplot()
+}
+
+rubona_timepoint_bar <- grouped_bar_chart_timepoint(rubona_data) + ggtitle("Rubona")
+karama_timepoint_bar <- grouped_bar_chart_timepoint(karama_data) + ggtitle("Karama")
+
+both_timepoint_bar <- ggarrange(rubona_timepoint_bar, karama_timepoint_bar)
+
+#grouped by gene for mono treatments
+grouped_bar_chart_mono_gene <- function(mono_data) {
+  plot <- ggplot(mono_data, 
+                 aes(fill=treatment, y=adj_log_std_conc, x=target_gene, group=treatment)) + 
+  geom_bar(position="dodge", stat="identity") +
+  theme_cowplot() +
+  coord_flip() +
+  theme(axis.title.y = element_blank())
+}
+
+karama_mono_bar <- grouped_bar_chart_mono_gene(karama_mono_dat) + ggtitle("Karama monocrops")
+rubona_mono_bar <- grouped_bar_chart_mono_gene(rubona_mono_dat) + ggtitle("Rubona monocrops")
+both_mono_bar <- ggarrange(karama_mono_bar, rubona_mono_bar)
+
+karama_inter_bar <- grouped_bar_chart_mono_gene(karama_inter_dat) + ggtitle("Karama intercrops")
+rubona_inter_bar <- grouped_bar_chart_mono_gene(rubona_inter_dat) + ggtitle("Rubona intercrops")
+both_inter_bar <- ggarrange(karama_inter_bar, rubona_inter_bar)
+
+#amoA barcharts
+
+#mono amoa df
+amoa_karama_mono <- karama_mono_dat %>%
+  filter(process == "ammonia_oxidation")
+amoa_rubona_mono <- rubona_mono_dat %>%
+  filter(process=="ammonia_oxidation")
+
+#inter amoa df
+amoa_rubona_inter <- rubona_inter_dat %>%
+  filter(process=="ammonia_oxidation")
+amoa_karama_inter <- karama_inter_dat %>%
+  filter(process=="ammonia_oxidation")
+
+
+amoa_bar_chart <- function(amoa_dat) {
+  plot <- 
+  ggplot(amoa_dat, aes(fill=treatment, y=adj_log_std_conc, x=gene_org, group=treatment)) + 
+    geom_bar(position="dodge", stat="identity") +
+  theme_cowplot() +
+  #facet_wrap(~ month) +
+  coord_flip() +
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_blank()) +
+  xlab("normalized gene quantity") 
+}
+
+karama_amoa_mono_bar <- amoa_bar_chart(amoa_karama_mono) + ggtitle("Karama mono amoA")
+rubona_amoa_mono_bar <- amoa_bar_chart(amoa_rubona_mono) + ggtitle("Rubona mono amoA")
+both_amoa_mono_bar <- ggarrange(karama_amoa_mono_bar, rubona_amoa_mono_bar)
+
+karama_amoa_inter_bar <- amoa_bar_chart(amoa_karama_inter) + ggtitle("Karama inter amoA")
+rubona_amoa_inter_bar <- amoa_bar_chart(amoa_rubona_inter) + ggtitle("Rubona inter amoA")
+both_amoa_inter_bar <- ggarrange(karama_amoa_inter_bar, rubona_amoa_inter_bar)
+
+
+karama_mono_nit_bar <- amoa_bar_chart(karama_mono_nit) + ggtitle("Karama mono nitrification")
+rubona_mono_nit_bar <- amoa_bar_bart(rubona_mono_nit) + ggtitle("Rubona mono nitrification")
+both_mono_nit_bar <- ggarrange(karama_mono_nit_bar, rubona_mono_nit_bar)
+
+karama_inter_nit_bar <- amoa_bar_chart(karama_inter_nit) + ggtitle("Karama inter nitrification")
+rubona_inter_nit_bar <- amoa_bar_chart(rubona_inter_nit) + ggtitle("Rubona inter nitrification")
+both_inter_nit_bar <- ggarrange(karama_inter_nit_bar, rubona_inter_nit_bar)
+
+
+karama_mono_denit_bar <- amoa_bar_chart(karama_mono_denit) + ggtitle("Karama mono denitrification")
+rubona_mono_denit_bar <- amoa_bar_chart(rubona_mono_denit) + ggtitle("Rubona mono denitrification")
+both_mono_denit_bar <- ggarrange(karama_mono_denit_bar, rubona_mono_denit_bar)
+
+karama_inter_denit_bar <- amoa_bar_chart(karama_inter_denit) + ggtitle("Karama inter denitrification")
+rubona_inter_denit_bar <- amoa_bar_chart(rubona_inter_denit) + ggtitle("Rubona inter denitrification")
+both_inter_denit_bar <- ggarrange(karama_inter_denit_bar, rubona_inter_denit_bar)
+
+
+
+```
+
+```{r boxplots}
+
+build_box_plot <- function(data) {
+  
+  plot <- ggplot(data, aes(x=gene_org, y=adj_log_std_conc, fill=treatment)) +
+    geom_boxplot() +
+    geom_jitter(color="grey50", alpha=0.5, size=0.4) +
+    theme(axis.title.y = element_blank()) +
+    theme_cowplot() +
+    coord_flip()
+  
+}
+
+karama_mono_nit_box <- build_box_plot(karama_mono_nit) + ggtitle("Karama mono nitrification")
+rubona_mono_nit_box <- build_box_plot(rubona_mono_nit) + ggtitle("Rubona mono nitrification")
+
+box_both_mono_nit <- ggarrange(karama_mono_nit_box, rubona_mono_nit_box, ncol=1)
+
+karama_inter_nit_box <- build_box_plot(karama_inter_nit) + ggtitle("Karama inter nitrification")
+rubona_inter_nit_box <- build_box_plot(rubona_inter_nit) + ggtitle("Rubona inter nitrification")
+
+box_both_inter_nit <-ggarrange(karama_inter_nit_box, rubona_inter_nit_box, ncol=1)
+
+```
+
+```{r sig testing for harvest x treatment within two timepoints}
+
+spread_by_var <- function(df, var_y, var_x, var_z){
+  
+   y <- eval(substitute(var_y), df)
+   x <- eval(substitute(var_x), df)
+   z <- eval(substitute(var_z), df)
+  
+  spread_df <- df %>%
+    select(y, x, z, sample) %>%
+    spread(x, key=sample, value =y )
+  
+  return(spread_df)
+  
+}
+
+#look at all timepoints together
+
+extract_sig_contrasts <- function(mono_nit_data) {
+
+data <- mono_nit_data %>%
+  mutate(timepoint = factor(timepoint, levels = 1:6)) %>%
+   group_by(primer_pair) %>%
+     group_map(~broom::tidy(
+              lsmeans::lsmeans(
+      lme4::lmer(log_conc ~ treatment*timepoint+ (1|block:timepoint) -1, data=.x),
+       pairwise~treatment*timepoint, adjust="Tukey")$contrasts))
+  
+facet1 <- data[[1]] %>% 
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <= 0.1099) %>%
+  mutate(primer_pair = "amoa_F1 / amoA_2R")
+
+facet2 <- data[[2]] %>% 
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>%
+  mutate(primer_pair = "Arch-amoAF / Arch-amoAR")
+
+facet3 <- data[[3]] %>%  
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>%
+  mutate(primer_pair = "Arch-amoAFA / Arch-amoAR")
+
+facet4 <- data[[4]] %>%  
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>% 
+  mutate(primer_pair = "Arch-amoAFB / Arch-amoAR")
+
+facet5 <- data[[5]] %>%  
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>%
+  mutate(primer_pair = "Gamo172_F1 / Gamo172_F1_R")
+  
+facet6 <- data[[6]] %>%  
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>%
+  mutate(primer_pair = "Gamo172_F1 / Gamo172_F1_R2") 
+
+facet7 <- data[[7]] %>% 
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>% 
+  mutate(primer_pair = "Gamo172_F2 / Gamo172_F2_R1")
+
+facet8 <- data[[8]] %>% 
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>% 
+  mutate(primer_pair = "haoF4 / haoR2")
+
+facet9 <- data[[9]] %>%  
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>%  
+  mutate(primer_pair = "hzocl1F1 / hzocl1R2")
+
+facet10 <- data[[10]] %>% 
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>% 
+  mutate(primer_pair = "NxrB169F / NxrB638R")
+  
+facet11 <- data[[11]] %>% 
+  filter(grepl("Brachiaria", contrast)) %>%
+  filter(adj.p.value <=0.1099) %>%  
+  mutate(primer_pair = "NxrB1F / NxrB1R")
+
+mono_sig_dat <- rbind(facet1, facet2, facet3, facet4, facet5, facet6, facet7,
+                             facet8, facet9, facet10, facet11) %>%
+  select(-c(term, null.value)) %>%
+  mutate(symbol = case_when(between(adj.p.value, 0.05, 0.1099) ~ ".",
+                            between(adj.p.value, 0.01, 0.05) ~ "*",
+                            between(adj.p.value, 0.001, 0.01) ~ "**",
+                            adj.p.value < 0.001 ~ "***")) %>%
+  mutate('group1' =  contrast %>% str_extract('.*(?= -)'), 
+                       'group2' = contrast %>% str_extract('(?<=- )(.*)')) %>% 
+  select(-c(contrast, estimate, df, statistic)) %>%
+  mutate('group1_t' = as.double(str_sub(group1, start= -1))) %>%
+  mutate('group2_t' = as.double(str_sub(group2, start= -1))) %>%
+  mutate(group1_t = case_when(group1_t == 1 ~ ymd("2020-09-16"),
+                              group1_t == 2 ~ ymd("2020-10-06"),
+                              group1_t == 3 ~ ymd("2020-11-18"),
+                              group1_t == 4 ~ ymd("2020-12-07"),
+                              group1_t == 5 ~ ymd("2021-01-19"),
+                              group1_t == 6 ~ ymd("2021-02-10"))) %>%
+  mutate(group2_t = case_when(group2_t == 1 ~ ymd("2020-09-16"),
+                              group2_t == 2 ~ ymd("2020-10-06"),
+                              group2_t == 3 ~ ymd("2020-11-18"),
+                              group2_t == 4 ~ ymd("2020-12-07"),
+                              group2_t == 5 ~ ymd("2021-01-19"),
+                              group2_t == 6 ~ ymd("2021-02-10"))) %>%
+  mutate(group1 = str_sub(group1, -30, -2)) %>%
+  mutate(group2 = str_sub(group2, -30, -2)) 
+  
+  df_str1 <- mono_sig_dat %>%
+  mutate(group1_str = ifelse(grepl("Brachiaria", group1), "NA", group1)) %>%
+  mutate(group2 = ifelse(grepl("Brachiaria", group2), group1_str, group2)) %>%
+  mutate(group1 = "Brachiaria cv. Mulato II") %>%
+  mutate(group2 = ifelse(grepl("NA", group2), "Brachiaria cv. Mulato II", group2)) %>%
+  select(-group1_str)
+  
+  return(as_tibble(df_str1))
+  
+
+}
+
+karama_mono_nit_sig_dat<- extract_sig_contrasts(karama_mono_nit) 
+
+rubona_mono_nit_sig_dat <- extract_sig_contrasts(rubona_mono_nit) #why not working for rubona?
+  
+```
+
+```{r summary data to plot against date}
+summary_stats_biol_rep <- function(dat) {
+  
+  se_fun <- function(d)
+  sd(d$log_conc/sqrt(length(d$test_conc1)))
+  mean_fun <- function(d)
+    mean(d$test_conc1)
+  min_fun <- function(d)
+    min(d$test_conc1)
+  max_fun <- function(d)
+    max(d$test_conc1)
+
+  
+  sum_df <- dat %>%
+    group_by(rep_id) %>%
+    nest() %>%
+    mutate(se = map(data, ~se_fun(.x))) %>%
+    mutate(mean = map(data, ~mean_fun(.x))) %>%
+    mutate(max = map(data, ~max_fun(.x))) %>%
+    mutate(min = map(data, ~min_fun(.x))) %>%
+    unnest(cols=max, min, mean, se, data) %>%
+    select(c("max", "min", "mean", "se", "date", "treatment", "gene_org", "primer_pair")) %>%
+    as_tibble() %>%
+    select(-rep_id) %>%
+    unique()
+  
+  return(sum_df)
+  
+}
+
+
+karama_mono_nit_se_df <- summary_stats_biol_rep(karama_mono_nit)
+rubona_mono_nit_se_df <- summary_stats_biol_rep(rubona_mono_nit)
+
+```
+
+```{r plot against date}
+
+karama_mono_nit_se_df <- summary_stats_biol_rep(karama_mono_nit) 
+rubona_mono_nit_se_df <- summary_stats_biol_rep(rubona_mono_nit)
+
+karama_mono_denit_se_df <- summary_stats_biol_rep(karama_mono_denit)
+rubona_mono_denit_se_df <- summary_stats_biol_rep(rubona_mono_denit)
+
+#line/dot plot
+time_dot_plot_primers <- function(summary_dat) {
+  
+  pd <- position_dodge(18)
+  
+  plot <-
+    ggplot(summary_dat, 
+           aes(x=date, y=mean, color=treatment,fill=treatment)) +
+  geom_point(stat="identity", position=pd) +
+  geom_line(stat="identity", position=pd) +
+  facet_wrap(~primer_pair) +
+  theme_bw() + 
+  scale_color_manual(values=pnw_palette("Bay", 4, type="discrete"))
+  
+  plot2 <- plot + geom_errorbar(aes(ymin=mean-se, ymax=mean+se), 
+                    position=pd,width=2) +
+    xlab("") +
+    ylab("log(gene abundance/16S bacteria + 16S archaea)")
+  
+  return(plot2)
+  
+}  
+
+karama_time_dot_plot_primers <- 
+  time_dot_plot_primers(karama_mono_nit_se_df) + ggtitle("Karama: nitrification genes")
+rubona_time_dot_plot_primers <- 
+  time_dot_plot_primers(rubona_mono_nit_se_df) + ggtitle("Rubona: nitrification genes") 
+
+karama_time_dot_plot_primers_denit <- 
+  time_dot_plot_primers(karama_mono_denit_se_df) + 
+  ggtitle("Karama: denitrification genes")
+rubona_time_dot_plot_primers_denit <-
+  time_dot_plot_primers(rubona_mono_denit_se_df) +
+  ggtitle("Rubona: denitrification genes")
+
+#bar plot
+
+time_bar_plot_primers <- function(summary_dat) {
+  
+  pd <- position_dodge(18)
+  
+  plot <-
+    ggplot(summary_dat, 
+           aes(x=ymd(date), y=mean, fill=treatment)) +
+  geom_bar(stat="identity", position=pd) +
+  #geom_line(stat="identity", position=pd) +
+  facet_wrap(~primer_pair) +
+  theme_bw() + 
+  scale_fill_manual(values=PNWColors::pnw_palette("Bay", 4, type="discrete"))
+  
+  plot2 <- plot + geom_errorbar(aes(ymin=mean-se, ymax=mean+se), 
+                    position=pd,width=2) +   
+    ylab("log(gene abundance/16S bacteria + 16S archaea)") +
+    xlab(" ")
+  
+  return(plot2)
+  
+}  
+
+
+karama_nit_time_bar <- time_bar_plot_primers(karama_mono_nit_se_df) +
+  ggtitle("Karama nitrification primers x date bar plot") 
+
+karama_nit_time_bar
+
+rubona_nit_time_bar <- time_bar_plot_primers(rubona_mono_nit_se_df) + 
+  ggtitle("Rubona nitrification primers x date bar plot")
+
+#further preparation of comparison data to plot
+rubona_mono_nit_sig_plot <- rubona_mono_nit_sig_dat %>%
+  mutate(group1_t = as.Date(group1_t),
+         group2_t = as.Date(group2_t)) %>%
+  mutate(group2 = factor(group2, levels = c("Brachiaria cv. Mulato II", "Desmodium distortum ", "maize monoculture ", "Napier grass "))) %>%
+  mutate(group2 = recode_factor(group2, "Brachiaria cv. Mulato II" = "Brachiaria cv. Mulato II", "Desmodium distortum " = "Desmodium distortum", "maize monoculture " = "maize monoculture", "Napier grass " = "Napier grass")) %>%
+  mutate(treatment = group2) %>%
+  filter(adj.p.value < 0.05) %>%
+  merge(assay_list, by="primer_pair", all.x = FALSE) %>%
+  select(c(primer_pair, adj.p.value, group1, group1_t, 
+           group2, group2_t, symbol, gene_org, treatment))
+
+#Rubona time dot with sig contrasts
+
+rubona_mono_nit_sig_plot <- rubona_mono_nit_sig_dat %>%
+  mutate(group1_t = as.Date(group1_t),
+         group2_t = as.Date(group2_t)) %>%
+  mutate(group2 = factor(group2, levels = c("Brachiaria cv. Mulato II", "Desmodium distortum ", "maize monoculture ", "Napier grass "))) %>%
+  mutate(group2 = recode_factor(group2, "Brachiaria cv. Mulato II" = "Brachiaria cv. Mulato II", "Desmodium distortum " = "Desmodium distortum", "maize monoculture " = "maize monoculture", "Napier grass " = "Napier grass")) %>%
+  mutate(treatment = group2) %>%
+  filter(adj.p.value < 0.05) %>%
+  merge(assay_list, by="primer_pair", all.x = FALSE) %>%
+  select(c(primer_pair, adj.p.value, group1, group1_t, 
+           group2, group2_t, symbol, gene_org, treatment))
+
+
+#df containing labels for individual facets
+label_df <- nice_data_new %>%
+  select(gene_org, primer_pair, pathway) %>%
+  filter(pathway == "nitrification") %>%
+  mutate(treatment = "Brachiaria cv. Mulato II") %>%
+  unique()
+
+#Plot rubona dot graph with comparisons and labels
+rubona_time_dot_sig <- rubona_time_dot_plot_primers + 
+  #ggpubr::stat_pvalue_manual(
+ # rubona_mono_nit_sig_plot, label = "symbol", tip.length = 0, 
+  #  xmin = "group1_t", xmax= "group2_t", y.position = -33, 
+  #  bracket.color = "group2", color="group2", step.group.by = #"primer_pair", step.increase = -0.35) +
+#  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=c(-10,-30)) +
+#  scale_color_manual(values=pnw_palette("Bay", 4, type="discrete")) +
+  theme(legend.position = "bottom", legend.title=element_blank(), 
+        legend.text = element_text(size=10)) +
+  geom_text(label_df, mapping = aes(x = as.Date("2020-12-01"), y = Inf, 
+                        label = gene_org, group=primer_pair), vjust = 2, size=3.5, fontface="bold", color="black") 
+  
+rubona_time_dot_sig
+
+#plot Rubona bar graph with comparisons and labels
+rubona_nit_mono_bar_error <- rubona_nit_time_bar + 
+  ggpubr::stat_pvalue_manual(
+    rubona_mono_nit_sig_plot, label = "symbol", tip.length = 0, 
+    xmin = "group1_t", xmax= "group2_t", y.position = -33, 
+    bracket.color = "group2", color="group2", step.group.by = "primer_pair", step.increase = -0.3) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=c(10,30)) +
+  scale_color_manual(values=pnw_palette("Bay", 4, type="discrete")) +
+  theme(legend.position = "none") +
+  geom_text(label_df, mapping = aes(x = as.Date("2020-12-01"), y = Inf, 
+                        label = gene_org, group=primer_pair), vjust = 2, size=3, fontface="bold")
+    
+
+rubona_nit_mono_bar_error
+
+
+#Remove Gamo172_F1 / Gamo172_F1_R and hzocl1F1 / hzocl1R2 to plot separately, avoid distorting y-axis
+
+#prepare data to graph: means/se
+gamo_hzo_df <- karama_mono_nit_se_df %>%
+  filter(primer_pair == "Gamo172_F1 / Gamo172_F1_R" |
+           primer_pair == "hzocl1F1 / hzocl1R2") |
+              primer_pair == "haoF4 / haoR2"
+#filter label data
+gamo_hzo_labels <- label_df %>%
+  filter(primer_pair == "Gamo172_F1 / Gamo172_F1_R" |
+           primer_pair == "hzocl1F1 / hzocl1R2" |
+            primer_pair == "haoF4 / haoR2")
+#filter compare data
+gamo_hzo_plot <- karama_mono_nit_sig_plot %>%
+  filter(primer_pair == "Gamo172_F1 / Gamo172_F1_R" |
+           primer_pair == "hzocl1F1 / hzocl1R2" |
+            primer_pair == "haoF4 / haoR2")
+#base plot
+zoom_plot_mono_nit_karama <- time_bar_plot_primers(gamo_hzo_df) +
+  theme(legend.position = "none")
+
+gamo_hzo_karama_sig <- zoom_plot_mono_nit_karama +
+  ggpubr::stat_pvalue_manual(
+    gamo_hzo_plot, label = "symbol", tip.length = 0, 
+    xmin = "group1_t", xmax= "group2_t", y.position = 33, 
+    bracket.color = "group2", color="group2", step.group.by = "primer_pair", step.increase = 0.35) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=c(10,30)) +
+  scale_color_manual(values=pnw_palette("Bay", 4, type="discrete")) +
+  theme(legend.position = "none", axis.title.y = element_blank(), axis.text.y = element_text(size=10), axis.text.x = element_text(size=10)) +
+  geom_text(gamo_hzo_labels, mapping = aes(x = as.Date("2020-12-01"), y = Inf, 
+                        label = gene_org, group=primer_pair), vjust = 2, size=3.5, fontface="bold")
+  
+gamo_hzo_karama_sig  
+
+#larger plot with gamo/hzo removed
+
+#prepare data to graph: means/se
+no_gamo_hzo_df <- karama_mono_nit_se_df %>%
+  filter(primer_pair != "Gamo172_F1 / Gamo172_F1_R" &
+           primer_pair != "hzocl1F1 / hzocl1R2")
+#filter label data
+no_gamo_hzo_labels <- label_df %>%
+  filter(primer_pair != "Gamo172_F1 / Gamo172_F1_R" &
+           primer_pair != "hzocl1F1 / hzocl1R2")
+#filter compare data
+no_gamo_hzo_plot <- karama_mono_nit_sig_plot %>%
+  filter(primer_pair != "Gamo172_F1 / Gamo172_F1_R" &
+           primer_pair != "hzocl1F1 / hzocl1R2")
+#base plot
+no_gamo_hzo_karama_nit_plot <- time_bar_plot_primers(no_gamo_hzo_df) +
+  theme(legend.position = "none", axis.text.x = element_text(size=10))
+
+no_gamo_hzo_karama_sig <- no_gamo_hzo_karama_nit_plot+
+  ggpubr::stat_pvalue_manual(
+    no_gamo_hzo_plot, label = "symbol", tip.length = 0, 
+    xmin = "group1_t", xmax= "group2_t", y.position = 33, 
+    bracket.color = "group2", color="group2", step.group.by = "primer_pair", step.increase = 0.35) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=c(10,30)) +
+  scale_color_manual(values=pnw_palette("Bay", 4, type="discrete")) +
+  theme(legend.position = "none", axis.title= element_text(size=15), axis.text.y = element_text(size=10), axis.text.x = element_text(size=10)) +
+  geom_text(no_gamo_hzo_labels, mapping = aes(x = as.Date("2020-12-01"), y = Inf, 
+                        label = gene_org, group=primer_pair), vjust = 2, size=3.5, fontface="bold")
+  
+no_gamo_hzo_karama_sig 
+
+
+ggarrange(no_gamo_hzo_karama_sig, gamo_hzo_karama_sig, nrow=1, widths = c(1, 0.5), heights = c(1, 0.5)) 
+
+
+```
+
+
+
+```{r correlation plot}
+#### all locaations and timepoints; primer_pair ####
+cor_primer <- nice_data_new %>%
+  select(test_conc1, primer_pair, sample)
+
+names(nice_data_new)
+
+spread_cor_primer <- spread(cor_primer, key=primer_pair, value=test_conc1)
+
+cor_primer_nosamp <- spread_cor_primer %>%
+  select(-sample)
+
+ggcorr(cor_primer_nosamp, method = c("everything", "pearson")) 
+
+primer_cor_matrix <- cor(cor_primer_nosamp, method = "pearson", use="complete.obs")
+
+#matrix with correlations and p-values
+primer_cor_rcorr <- Hmisc::rcorr(as.matrix(primer_cor_matrix), type="pearson")
+
+primer_cor_coef <- primer_cor_rcorr$r
+primer_cor_pval <- primer_cor_rcorr$P
+
+
+#visualize matrix
+#no p-vals
+corrplot(primer_cor_matrix, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+
+# Insignificant correlations are left blank
+corrplot(primer_cor_matrix, type="upper", order="hclust", 
+         p.mat = primer_cor_rcorr$P, sig.level = 0.05, insig = "blank")
+
+#### all locaations and timepoints; target_gene/org ####
+mean_fun <- function(d)
+  mean(d$log_conc)
+  
+cor_gene <- nice_data_new %>%
+  select(log_conc, gene_org, sample) %>%
+  group_by(gene_org, sample) %>%
+  nest()%>%
+  mutate(gene_quantity = map(data, ~mean_fun(.x)))  %>% #collapse df so there is just one gene per sample; required for generating matrix
+  unnest(cols = c("gene_org", "gene_quantity", "sample")) %>%
+  select(-data) %>%
+  as_tibble()
+
+spread_cor_gene <- spread(cor_gene, key = gene_org, value=gene_quantity) %>%
+  select(-sample)
+
+gene_cor_matrix = cor(spread_cor_gene, method="pearson")
+
+ggcorr(spread_cor_gene, method = c("everything", "pearson")) 
+
+primer_cor_matrix <- cor(cor_primer_nosamp, method = "pearson", use="complete.obs")
+
+#matrix with correlations and p-values
+gene_cor_rcorr <- Hmisc::rcorr(as.matrix(gene_cor_matrix), type="pearson")
+
+gene_cor_coef <- gene_cor_rcorr$r
+gene_cor_pval <- gene_cor_rcorr$P
+
+
+#visualize matrix
+#no p-vals
+corrplot(gene_cor_matrix, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+
+# Insignificant correlations are left blank
+corrplot(gene_cor_matrix, type="upper", order="hclust", 
+         p.mat = gene_cor_rcorr$P, sig.level = 0.05, insig = "blank")
+
+
+ggpairs(spread_cor_gene, cardinality_threshold = 17)
+plot(spread_cor_gene, pch = 20, cex=1.5, col="#69b3a2")
+
+```
+
+```{r correlation matrix with environmental variables}
+
+library(SNCAnalysis)
+
+sample_dat <- SNCAnalysis::master_dat %>%
+  select(-c(umol_kg_hr, adjust_dea))%>%
+  #duplicate POXC for sample 456
+  group_by(sample) %>%
+  mutate(mg_kg_POXC = mean(mg_kg_POXC)) %>%
+  ungroup() %>%
+  unique() %>%
+  as.data.frame()
+ # mutate(sample = rownames(sample_dat))
+head(sample_dat)
+
+
+head(nice_final)
+
+
+nice_wide_nit <- nice_final %>%
+  filter(pathway == "nitrification") %>%
+  select(sample, primer_pair, test_conc1) %>%
+  pivot_wider(names_from = primer_pair, values_from = test_conc1)
+
+nice_wide_denit <- nice_final %>%
+  filter(pathway == "denitrification") %>%
+  select(sample, primer_pair, test_conc1) %>%
+  pivot_wider(names_from = primer_pair, values_from = test_conc1)
+
+#join nice_wide to soil data
+
+nit_master_dat <- merge(nice_wide_nit, sample_dat, by="sample") %>%
+  select(-c(treatment, timepoint, location, group, block, date))
+
+denit_master_dat <- merge(nice_wide_denit, sample_dat, by="sample") %>%
+  select(-c(treatment, timepoint, location, group, block, date))
+
+
+ggpairs(nit_master_dat, cardinality_threshold = 17) #all nitrification genes sig with NP and DEA
+ggpairs(denit_master_dat, cardinality_threshold = 17) #all denit genes sig with NP and DEA
+
+boxplot(nice_final$log_conc_16S~nice_final$treatment) #no apparent differences in 16S abund across treatments
+
+all_master <- nice_final %>%
+  select(sample, primer_pair, adj_log_std_conc, gene_org, log_bact_arch_abund, test_conc2, test_conc1, log_conc, conc_16S) %>%
+  merge(sample_dat, by="sample")
+
+```
+
+```{r correlation coefficients and p-values}
+
+cor_dat <- all_master %>%
+  group_by(gene_org) %>%
+  summarise(cor_coef = cor.test(test_conc1, log_dea)$estimate,
+            p_val = cor.test(test_conc1, log_dea)$p.value)
+
+  
+cor_dat
+```
+
+```{r plot correlations with enzyme activity}
+
+head(all_master)
+hist(all_master$NP)
+
+all_master <- all_master %>%
+  mutate(conc = exp(log_conc)) %>%
+  mutate(test_conc3 = log(conc/conc_16S))
+
+hist(all_master$test_conc3)
+
+#NP vs gene_org abundances
+np_nice <- ggplot(all_master, aes(x=NP, y=test_conc1)) +
+  geom_point(aes(color=timepoint)) +
+  geom_smooth(method=lm, se=FALSE) +
+  facet_wrap(~gene_org) +
+  theme_bw()
+
+np_nice2 <- ggplot(all_master, aes(x=NP, y=test_conc1)) +
+  geom_point(aes(color=timepoint)) +
+  geom_smooth(method=lm, se=FALSE) +
+  facet_wrap(~gene_org) +
+  theme_bw()
+
+np_nice2 + stat_cor(method = "pearson", label.x = 0, label.y = 2) +
+  ylab("log(gene abundance/16S bacteria + 16S archaea)") +
+  xlab(expression(~mg ~ NO[3]^{"-"}-N~""~kg^{-1}~soil~hr^{-1}))
+
+#DEA vs gene_org abundances
+pal <- RColorBrewer::brewer.pal(6, "GnBu")
+legend_title <- "Timepoint"
+
+label_df_dea <-all_master %>%
+  select(primer_pair, gene_org) %>%
+  unique()
+
+dea_nice <- ggplot(all_master, aes(x=log_dea, y=test_conc1)) +
+  geom_point(aes(color=timepoint)) +
+  guides(colour = guide_coloursteps(show.limits = TRUE)) +
+  #scale_color_manual(legend_title,values=pal) +
+  geom_smooth(method=lm, se=FALSE) +
+  facet_wrap(~primer_pair) +
+  theme_bw() +
+  theme(axis.title = element_text(size=18), axis.text.x = element_text(size=10), axis.text.y = element_text(size=10), legend.position="top", axis.title.x = element_blank()) +
+  geom_text(label_df_dea, mapping = aes(x = 5, y = Inf, 
+                        label = gene_org, group=primer_pair), vjust = 1.5,  size=3.5, fontface="bold")
+  
+
+dea_nice + stat_cor(method = "pearson", label.x = 0, label.y = 1.5)+
+  ylab("log(gene abundance/16S bacteria + 16S archaea)") +
+  xlab(expression(~""*mu~mol~""~N[2]~O~kg^{-1}~soil~hr^{-1}))
+
+
+label_df_all <-all_master %>%
+  select(primer_pair, gene_org) %>%
+  unique()
+
+abund_16S <- ggplot(all_master, aes(x=log_bact_arch_abund, y=test_conc1))+
+  geom_point(aes(color=timepoint)) +
+  geom_smooth(method=lm, se=FALSE) +
+  facet_wrap(~primer_pair) +
+  theme_bw() +
+  xlab("log(16S bacteria + 16S archaea)") +
+  ylab("log(gene abundance / 16S bacteria + 16S archaea)") +
+   guides(colour = guide_coloursteps(show.limits = TRUE)) +
+  theme(axis.title = element_text(size=18),
+        axis.text.x = element_text(size=10),
+        axis.text.y = element_text(size=10)) +
+  geom_text(label_df_dea, mapping = aes(x = 25, y = Inf, 
+                        label = gene_org, group=primer_pair), vjust = 1.5,  size=3, fontface="bold")
+
+
+abund_gwc <- ggplot(all_master, aes(x=log_bact_arch_abund, y=gwc)) +
+  geom_point(aes(color=timepoint)) +
+  geom_smooth(method=lm, se=FALSE, formula = y~x) +
+ # facet_wrap(~timepoint)+
+  theme_bw() +
+  theme(axis.title = element_text(size=18), axis.text.y = element_text(size=10), axis.text.x = element_text(size=10)) +
+  guides(colour = guide_coloursteps(show.limits = TRUE)) +
+  ylab("Gravimetric water content") +
+  xlab("log(16S bacteria + 16S archaea)") +
+  stat_cor(method = "pearson", label.x = 15, label.y = 0.025)
+
+
+abund_gwc
+abund_16S <- abund_16S + stat_cor(method = "pearson", label.x = 15, label.y = -32)
+
+ggpubr::ggarrange(abund_gwc , abund_16S, common.legend = TRUE,
+                  widths = c(1, 2), legend = "right")
+
+
+```
+
+```{r correlation network}
+library(corrr)
+
+primer_cor_matrix %>% #not very useful - try with target_gene instead of primer_pair
+  network_plot(min_cor = 0.3)
+
+gene_cor_matrix %>%
+  network_plot(min_cor = 0.6, repel=TRUE)
+
+```
+
+```{r gene heatmap}
+
+#all locations and timepoints, primer_pair
+heatmap(x = primer_cor_matrix, symm = TRUE)
+
+#all locations and timepoints, target gene/ group
+heatmap(x = gene_cor_matrix, symm = TRUE)
+
+```
+
+```{r circular histogram}
+
+circos.initialize(factors=nice_data_new$gene_org, x=nice_data_new$log_conc )
+
+circos.trackPlotRegion(factors = nice_data_new$gene_org, y = nice_data_new$log_conc, panel.fun = function(x, y) {
+    circos.axis(
+        h="top",                   # x axis on the inner or outer part of the track?
+        labels=TRUE,               # show the labels of the axis?
+       # major.tick=TRUE,           # show ticks?
+        labels.cex=0.5,            # labels size (higher=bigger)
+        labels.font=1,             # labels font (1, 2, 3 , 4)
+        #direction="outside",       # ticks point to the outside or inside of the circle ?
+       # minor.ticks=4,             # Number of minor (=small) ticks
+        #major.tick.percentage=0.1, # The size of the ticks in percentage of the track height
+        lwd=2                      # thickness of ticks and x axis.
+        )
+    })
+
+circos.trackHist(nice_data_new$gene_org, nice_data_new$log_conc, bg.col = "white", col = "#69b3a2")
+
+
+```
+
+```{r}
+
+boxplot(nice_data_new$log_conc, nice_data_new$assay)
+
+```
+
