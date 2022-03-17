@@ -5,7 +5,6 @@ setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/metadata")
 
 
 nice_mat <- read.table(file="nice_matrix.Rdata")
-head(nice_mat)
 
 spread_mat <- spread(nice_mat, key=assay, value=log_conc_truesoil) 
 
@@ -14,16 +13,10 @@ rownames(spread_mat) <- spread_mat$sample
 final_mat <- spread_mat[,(2:21)] %>%
   as.matrix()
 
-nice_mat_2 <- read.table(file="nice_matrix.Rdata")
-spread_df <- spread(nice_mat, sample, log_conc_truesoil)
-abund_df <- spread_df[,-1]
-assays <- spread_df[,1]
-rownames(abund_df) <- assays
-
 setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/final_data")
 
 nice <- read_csv("final_nice_std_data.csv") %>%
-  select(assay, sample, log_conc_truesoil, primer_F, primer_R) %>%
+  select(assay, sample, log_conc_truesoil, primer_F, primer_R, location) %>%
   mutate(primer_pair = paste(primer_F, primer_R, sep= " / ")) %>%
   select(-c(primer_F, primer_R)) %>%
   mutate(timepoint = case_when(sample %in% 201:256 ~ 1,
@@ -41,11 +34,29 @@ nice_4 <- filter(nice, timepoint ==4)
 nice_5 <- filter(nice, timepoint ==5)
 nice_6 <- filter(nice, timepoint ==6)
 
+#loc x time graphs
+k_1 <- filter(nice, timepoint ==1 & location=="Karama")
+r_1 <- filter(nice, timepoint ==1 & location=="Rubona")
+
+k_2 <- filter(nice, timepoint ==2 & location=="Karama")
+r_2 <- filter(nice, timepoint ==2 & location=="Rubona")
+
+k_3 <- filter(nice, timepoint ==3 & location=="Karama")
+r_3 <- filter(nice, timepoint ==3 & location=="Rubona")
+
+k_4 <- filter(nice, timepoint ==4 & location=="Karama")
+r_4 <- filter(nice, timepoint ==4 & location=="Rubona")
+
+k_5 <- filter(nice, timepoint ==5 & location=="Karama")
+r_5 <- filter(nice, timepoint ==5 & location=="Rubona")
+
+k_6 <- filter(nice, timepoint ==6 & location=="Karama")
+r_6 <- filter(nice, timepoint ==6 & location=="Rubona")
 
 #get data into correct format for correlation analysis
 df_to_mat <- function(data) {
   data <- data %>%
-    select(-c(timepoint, assay))
+    select(-c(timepoint, assay, location))
   
   spread_data <- spread(data, key=primer_pair, value=log_conc_truesoil) %>%
     column_to_rownames('sample')
@@ -61,6 +72,18 @@ nice_5_cor <- df_to_mat(nice_5)
 nice_6_cor <- df_to_mat(nice_6) 
 nice_all_cor <- df_to_mat(nice)
 
+k_1_cor <- df_to_mat(k_1)
+r_1_cor <- df_to_mat(r_1)
+k_2_cor <- df_to_mat(k_2)
+r_2_cor <- df_to_mat(r_2)
+k_3_cor <- df_to_mat(k_3)
+r_3_cor <- df_to_mat(r_3)
+k_4_cor <- df_to_mat(k_4)
+r_4_cor <- df_to_mat(r_4)
+k_5_cor <- df_to_mat(k_5)
+r_5_cor <- df_to_mat(r_5)
+k_6_cor <- df_to_mat(k_6)
+r_6_cor <- df_to_mat(r_6)
 #log gene quantity matix > spearman correlation matrix
 
 make_cor_mat <- function(dat) {
@@ -89,6 +112,35 @@ nice_5_cor_mat <- nice_5_mat$r
 nice_6_mat <- make_cor_mat(nice_6_cor)
 nice_6_cor_mat <- nice_6_mat$r
 
+k_1_mat <- make_cor_mat(k_1_cor)
+k_1_cor_mat <- k_1_mat$r
+r_1_mat <- make_cor_mat(r_1_cor)
+r_1_cor_mat <- k_1_mat$r
+
+k_2_mat <- make_cor_mat(k_2_cor)
+k_2_cor_mat <- k_2_mat$r
+r_2_mat <- make_cor_mat(r_2_cor)
+r_2_cor_mat <- k_2_mat$r
+
+k_3_mat <- make_cor_mat(k_3_cor)
+k_3_cor_mat <- k_3_mat$r
+r_3_mat <- make_cor_mat(r_3_cor)
+r_3_cor_mat <- k_3_mat$r
+
+k_4_mat <- make_cor_mat(k_4_cor)
+k_4_cor_mat <- k_4_mat$r
+r_4_mat <- make_cor_mat(r_4_cor)
+r_4_cor_mat <- k_4_mat$r
+
+k_5_mat <- make_cor_mat(k_5_cor)
+k_5_cor_mat <- k_5_mat$r
+r_5_mat <- make_cor_mat(r_5_cor)
+r_5_cor_mat <- k_5_mat$r
+
+k_6_mat <- make_cor_mat(k_6_cor)
+k_6_cor_mat <- k_6_mat$r
+r_6_mat <- make_cor_mat(r_6_cor)
+r_6_cor_mat <- k_6_mat$r
 
 #For network analysis, we need to change back to a long df format so that each pairwise comparison has an edge value
 
@@ -115,7 +167,7 @@ make_cor_df <- function(mat) {
   
   df <- df %>% 
     unique() %>%
-    rename(a = row,
+    dplyr::rename(a = row,
            b= column,
            r = cor)
   
@@ -130,4 +182,20 @@ nice_5_cor_df <- make_cor_df(nice_5_mat)
 nice_6_cor_df <- make_cor_df(nice_6_mat)
 nice_all_cor_df <- make_cor_df(nice_all_mat)
 
+k_1_cor_df <- make_cor_df(k_1_mat)
+r_1_cor_df <- make_cor_df(r_1_mat)
 
+k_2_cor_df <- make_cor_df(k_2_mat)
+r_2_cor_df <- make_cor_df(r_2_mat)
+
+k_3_cor_df <- make_cor_df(k_3_mat)
+r_3_cor_df <- make_cor_df(r_3_mat)
+
+k_4_cor_df <- make_cor_df(k_4_mat)
+r_4_cor_df <- make_cor_df(r_4_mat)
+
+k_5_cor_df <- make_cor_df(k_5_mat)
+r_5_cor_df <- make_cor_df(r_5_mat)
+
+k_6_cor_df <- make_cor_df(k_6_mat)
+r_6_cor_df <- make_cor_df(r_6_mat)

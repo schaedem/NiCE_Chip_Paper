@@ -103,16 +103,16 @@ data.scores.loc.time$timepoint = loc_time_cocur$timepoint
 #simple ordination plot with centroids overlaid
 centroid_plot <- ggplot() + 
   geom_point(data = data.scores.loc.time, 
-             aes(x = MDS1, y = MDS2, fill=location), size = 2, alpha = 0.4, stat="identity") + 
-  scale_fill_manual(values=c("Karama"="red", "Rubona"="blue")) +
+             aes(x = MDS1, y = MDS2, color=location), size = 2, alpha = 0.4, stat="identity") + 
+  scale_color_manual(values=c("#E41A1C", "#377EB8")) +
   theme_classic() +
   geom_point(data=centroids.time, 
-             aes(x=MDS1_time, y=MDS2_time, color=as.factor(timepoint)),
-             shape=18, size=4.5, inherit.aes=FALSE) +
-  viridis::scale_color_viridis(option="D", discrete=TRUE)
+             aes(x=MDS1_time, y=MDS2_time, fill=as.factor(timepoint)),
+              size=4.5, inherit.aes=FALSE) +
+  viridis::scale_fill_viridis(option="D", discrete=TRUE)
 centroid_plot
 
-RColorBrewer::brewer.pal(2, "Set1")
+RColorBrewer::brewer.pal(4,"Set1")
 
 #ordination plot with shaded ellipses
 #stat_ellipse level controls confidence interval - lower confidence = smaller ellipses
@@ -125,25 +125,23 @@ my_legend <- tibble(x=c(0.6, 1.8, -1.2, 1.3, -1.2, 0.65),
                              "4. mid rainy\nregrowth", "5. late rainy\nanthesis",
                              "6. late rainy\nregrowth"))
 
-ellipse_plot <- ggplot(data = data.scores, aes(x = MDS1, y = MDS2, color=as.factor(timepoint))) + 
-  stat_ellipse(level=0.8, geom="polygon", alpha=0.2,show.legend=FALSE, aes(fill=as.factor(timepoint)))+
-  geom_point(size = 2, alpha = 0.4) + 
-  theme(axis.title = element_text(size = 10, face = "bold", colour = "grey30"), 
-        panel.background = element_blank(), panel.border = element_rect(fill = NA, colour = "grey30"), 
-        axis.ticks = element_blank(), axis.text = element_blank(), legend.key = element_blank(), 
-        legend.title = element_text(size = 10, face = "bold", colour = "grey30"), 
-        legend.text = element_text(size = 9, colour = "grey30"),
-        legend.position = "none") +
-  labs(colour = "Timepoint") +
-  scale_color_viridis(discrete=TRUE, option="D")+
-  scale_fill_viridis(discrete=TRUE, option="D") +
+ellipse_plot <- ggplot() + 
+  geom_point(data = data.scores.loc.time, 
+             aes(x = MDS1, y = MDS2, color=location), 
+             size = 2, alpha = 0.8) + 
+  scale_color_manual(values=c("#E41A1C", "#377EB8")) +
+  theme(legend.key=element_rect(fill=NA, color=NA)) +
   theme_classic() +
-  theme(legend.position="none") +
-  geom_text(data=my_legend, 
-            aes(x=x, y=y, color=color, label=label),
-            inherit.aes=FALSE, show.legend=FALSE, fontface="bold", lineheight=0.8, hjust=1) 
+  stat_ellipse(data=data.scores.loc.time,level=0.8, geom="polygon", alpha=0.3,
+               show.legend=TRUE, aes(x=MDS1, y=MDS2,fill=as.factor(timepoint)))+
+  labs(fill = "Timepoint", color="") +
+  viridis::scale_fill_viridis(discrete=TRUE, option="D") 
+
+  #geom_text(data=my_legend, 
+           # aes(x=x, y=y, color=color, label=label),
+           # inherit.aes=FALSE, show.legend=FALSE, fontface="bold", lineheight=0.8, hjust=1) 
 
 ellipse_plot
 
-ggsave("timepoint_nmds_ellipse_viridis.tiff", width=8, height=5, dpi=300)
+ggsave("loc_time_nmds_ellipse_viridis.tiff", width=8, height=5, dpi=300)
 

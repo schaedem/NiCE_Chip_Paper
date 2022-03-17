@@ -2,7 +2,6 @@ library(tidyverse)
 library(igraph)
 library(Hmisc)
 library(corrr)
-
 setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/final_data")
 source("correlation_dataframes.R")
 
@@ -88,5 +87,4 @@ nice_3_dens <- edge_density(nice_3_graph, loops=FALSE) #0.346 - harvest
 nice_4_dens <- edge_density(nice_4_graph, loops=FALSE) #0.949 - early growth
 nice_5_dens <- edge_density(nice_5_graph, loops=FALSE) #0.477 - harvest
 nice_6_dens <- edge_density(nice_6_graph, loops=FALSE) #0.345 - early growth
-
 

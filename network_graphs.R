@@ -115,7 +115,6 @@ nodesint <- make_nodes_df(nodes_intersect, assay_list) %>%
   as_tibble()
 ######
 
-
 make_network_graph <- function(nodes, edgelist) {
 
   edgelist <- edgelist %>%
