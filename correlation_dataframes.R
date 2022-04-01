@@ -1,5 +1,6 @@
 #Generate dataframes ready for co-occurence network analysis
 library(tidyverse)
+library(bcdstats)
 
 setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/metadata")
 
@@ -27,12 +28,12 @@ nice <- read_csv("final_nice_std_data.csv") %>%
                                sample %in% 701:756 ~ 6))
 
 #add filtering by location here?
-nice_1 <- filter(nice, timepoint ==1) 
-nice_2 <- filter(nice, timepoint ==2)
-nice_3 <- filter(nice, timepoint ==3)
-nice_4 <- filter(nice, timepoint ==4)
-nice_5 <- filter(nice, timepoint ==5)
-nice_6 <- filter(nice, timepoint ==6)
+#nice_1 <- filter(nice, timepoint ==1) 
+#nice_2 <- filter(nice, timepoint ==2)
+#nice_3 <- filter(nice, timepoint ==3)
+#nice_4 <- filter(nice, timepoint ==4)
+#nice_5 <- filter(nice, timepoint ==5)
+#nice_6 <- filter(nice, timepoint ==6)
 
 #loc x time graphs
 k_1 <- filter(nice, timepoint ==1 & location=="Karama")
@@ -64,13 +65,6 @@ df_to_mat <- function(data) {
   return(spread_data)
 }
 
-nice_1_cor <- df_to_mat(nice_1) 
-nice_2_cor <- df_to_mat(nice_2)
-nice_3_cor <- df_to_mat(nice_3) 
-nice_4_cor <- df_to_mat(nice_4)
-nice_5_cor <- df_to_mat(nice_5)
-nice_6_cor <- df_to_mat(nice_6) 
-nice_all_cor <- df_to_mat(nice)
 
 k_1_cor <- df_to_mat(k_1)
 r_1_cor <- df_to_mat(r_1)
@@ -84,63 +78,37 @@ k_5_cor <- df_to_mat(k_5)
 r_5_cor <- df_to_mat(r_5)
 k_6_cor <- df_to_mat(k_6)
 r_6_cor <- df_to_mat(r_6)
-#log gene quantity matix > spearman correlation matrix
+
+#log gene quantity per g soil matix > spearman correlation matrix
 
 make_cor_mat <- function(dat) {
-  cor_dat <- Hmisc::rcorr(as.matrix(dat), type="spearman")
+  
+  cor_dat <- adjust.corr(dat, type="spearman", adjust="BH")
+  
+  #cor_dat <- Hmisc::rcorr(as.matrix(dat), type="spearman")
   return(cor_dat)
 }
 
-nice_all_mat <- Hmisc::rcorr(final_mat, type="spearman") 
-nice_all_cor_mat <- nice_all_mat$r
-
-nice_1_mat <- make_cor_mat(nice_1_cor)
-nice_1_cor_mat <- nice_1_mat$r
-
-nice_2_mat <- make_cor_mat(nice_2_cor)
-nice_2_cor_mat <- nice_2_mat$r
-
-nice_3_mat <- make_cor_mat(nice_3_cor)
-nice_3_cor_mat <- nice_3_mat$r
-
-nice_4_mat <- make_cor_mat(nice_4_cor)
-nice_4_cor_mat <- nice_4_mat$r
-
-nice_5_mat <- make_cor_mat(nice_5_cor)
-nice_5_cor_mat <- nice_5_mat$r
-
-nice_6_mat <- make_cor_mat(nice_6_cor)
-nice_6_cor_mat <- nice_6_mat$r
+#use adjust.corr() from bcdstats package to get BH - adjusted p-values
+#necessary to adjust for error introduced from multiple comparisons
 
 k_1_mat <- make_cor_mat(k_1_cor)
-k_1_cor_mat <- k_1_mat$r
 r_1_mat <- make_cor_mat(r_1_cor)
-r_1_cor_mat <- k_1_mat$r
 
 k_2_mat <- make_cor_mat(k_2_cor)
-k_2_cor_mat <- k_2_mat$r
 r_2_mat <- make_cor_mat(r_2_cor)
-r_2_cor_mat <- k_2_mat$r
 
 k_3_mat <- make_cor_mat(k_3_cor)
-k_3_cor_mat <- k_3_mat$r
 r_3_mat <- make_cor_mat(r_3_cor)
-r_3_cor_mat <- k_3_mat$r
 
 k_4_mat <- make_cor_mat(k_4_cor)
-k_4_cor_mat <- k_4_mat$r
 r_4_mat <- make_cor_mat(r_4_cor)
-r_4_cor_mat <- k_4_mat$r
 
 k_5_mat <- make_cor_mat(k_5_cor)
-k_5_cor_mat <- k_5_mat$r
 r_5_mat <- make_cor_mat(r_5_cor)
-r_5_cor_mat <- k_5_mat$r
 
 k_6_mat <- make_cor_mat(k_6_cor)
-k_6_cor_mat <- k_6_mat$r
 r_6_mat <- make_cor_mat(r_6_cor)
-r_6_cor_mat <- k_6_mat$r
 
 #For network analysis, we need to change back to a long df format so that each pairwise comparison has an edge value
 
@@ -153,8 +121,8 @@ r_6_cor_mat <- k_6_mat$r
 
 make_cor_df <- function(mat) {
   
-  cormat <- mat$r
-  pmat <- mat$P
+  cormat <- mat[["R"]][["r"]]
+  pmat <- mat[["P"]]
   
   ut <- upper.tri(cormat)
   
@@ -169,18 +137,11 @@ make_cor_df <- function(mat) {
     unique() %>%
     dplyr::rename(a = row,
            b= column,
-           r = cor)
+           r = cor) %>%
+    mutate(p = as.numeric(substr(p, 2,6)))
   
   return(df)
 }
-
-nice_1_cor_df <- make_cor_df(nice_1_mat)
-nice_2_cor_df <- make_cor_df(nice_2_mat)
-nice_3_cor_df <- make_cor_df(nice_3_mat)
-nice_4_cor_df <- make_cor_df(nice_4_mat)
-nice_5_cor_df <- make_cor_df(nice_5_mat)
-nice_6_cor_df <- make_cor_df(nice_6_mat)
-nice_all_cor_df <- make_cor_df(nice_all_mat)
 
 k_1_cor_df <- make_cor_df(k_1_mat)
 r_1_cor_df <- make_cor_df(r_1_mat)

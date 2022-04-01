@@ -9,7 +9,7 @@ library(cowplot)
 library(ggpubr)
 setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/final_data")
 source("correlation_dataframes.R")
-source("networks_and_statistics.R")
+#source("networks_and_statistics.R")
 options(warnings=-1)
 
 #Read in assay list: primer pairs, gene/org designation, pathway, process (function), unique hexcodes
@@ -40,80 +40,41 @@ make_nodes_df <- function(graphobject, assay_list){
   
   edges <- get.edgelist(graph) %>% as_tibble()
   
-  degrees <- degree(graph) %>% as_tibble_col()
-        degreenames <- degree(graph) %>% as_tibble_row()
-  names <- colnames(degreenames)
+  degrees <- degree(graph) %>% as_tibble_col() %>% rename(degree = value)
+  degreenames <- degree(graph) %>% as_tibble_row() 
+  names <- colnames(degreenames) %>% unlist() %>% as_tibble_col() %>% rename(primer_pair=value)
+
+  betweenness_dat <- betweenness(graph) %>%
+    as_tibble_col() %>%
+    rename(betweenness=value)
   
-  all <- cbind(degrees, names) %>% 
-    rename(degrees = value,
-           value = names)
+  betw_names <- betweenness(graph) %>%
+    as_tibble_row()
   
+  betw_names <- colnames(betw_names) %>%
+    unlist() %>%
+    as_tibble_col() %>%
+    rename(primer_pair=value)
+  
+  closeness_dat <- closeness(graph) %>%
+    as_tibble_col() %>% rename(closeness_centrality = value)
+  
+  close_names <- closeness(graph) %>% as_tibble_row() 
+  close_names <- colnames(close_names) %>% as_tibble_col() %>% rename(primer_pair=value)
+  
+  degree_df <- bind_cols(degrees, names) 
+  between_df <- bind_cols(betweenness_dat, betw_names)
+  closeness_df <- bind_cols(closeness_dat, close_names)
+  all <- merge(degree_df, between_df) %>% merge(closeness_df)
+
   # data frame with groups, degree, labels and id
   nodes <- data.frame(process, pathway, graph_labels, color, gene_org, id=1:vcount(graph)) %>%
-    merge(all, by="value")
+    merge(all, by="primer_pair")
   
   return(nodes)
   
 }
 
-nodes1 <- make_nodes_df(nice_1_graph, assay_list) %>%
-      mutate(process = factor(process, levels = c("ammonia_oxidation", "hydroxylamine_oxidation", "nitrite_oxidation",
-                                                  "nitrite_reduction", "nitric_oxide_reduction", "nitrous_oxide_reduction", "n_fixation")),
-             pathway = factor(pathway, levels=c("nitrification", "denitrification", "comammox", "n_fixation")),
-             pathway = ordered(pathway)) %>%
-      as_tibble()  %>%
-      select(-id)
-  
-  
-nodes2 <- make_nodes_df(nice_2_graph, assay_list) %>%
-  mutate(process = factor(process, levels = c("ammonia_oxidation", "hydroxylamine_oxidation", "nitrite_oxidation",
-                                       "nitrite_reduction", "nitric_oxide_reduction", "nitrous_oxide_reduction", "n_fixation")),
-                          pathway = factor(pathway, levels=c("nitrification", "denitrification", "comammox", "n_fixation")),
-                          pathway = ordered(pathway)) %>%
-        as_tibble() %>%
-        select(-id)
-
-nodes3 <- make_nodes_df(nice_3_graph, assay_list) %>%
-  mutate(process = factor(process, levels = c("ammonia_oxidation", "hydroxylamine_oxidation", "nitrite_oxidation",
-            "nitrite_reduction", "nitric_oxide_reduction", "nitrous_oxide_reduction")),
-         pathway = factor(pathway, levels=c("nitrification", "denitrification", "comammox")),
-        pathway = ordered(pathway)) %>%
-       as_tibble() 
-
-nodes4 <- make_nodes_df(nice_4_graph, assay_list) %>%
-  mutate(process = factor(process, levels = c("ammonia_oxidation", "hydroxylamine_oxidation", "nitrite_oxidation",
-                                              "nitrite_reduction", "nitric_oxide_reduction", "nitrous_oxide_reduction", "n_fixation")),
-         pathway = factor(pathway, levels=c("nitrification", "denitrification", "comammox")),
-         pathway = ordered(pathway)) %>%
-  as_tibble() 
-
-nodes5 <- make_nodes_df(nice_5_graph, assay_list) %>%
-  mutate(process = factor(process, levels = c("ammonia_oxidation", "hydroxylamine_oxidation", "nitrite_oxidation", "nitrate_reduction",
-                                              "nitrite_reduction", "nitric_oxide_reduction", "nitrous_oxide_reduction", "n_fixation")),
-         pathway = factor(pathway, levels=c("nitrification", "denitrification")),
-         pathway = ordered(pathway)) %>%
-  as_tibble() 
-
-nodes6 <- make_nodes_df(nice_6_graph, assay_list) %>%
-  mutate(process = factor(process, levels = c("ammonia_oxidation", "hydroxylamine_oxidation", "nitrite_oxidation",
-                                              "nitrite_reduction", "nitric_oxide_reduction", "nitrous_oxide_reduction")),
-         pathway = factor(pathway, levels=c("nitrification", "denitrification")),
-         pathway = ordered(pathway)) %>%
-  as_tibble() 
-
-###Find intersection graph: which co-occurrences are present in all timepoints?###
-
-nodes_intersect <- intersection(nice_1_graph, nice_2_graph, nice_3_graph, nice_4_graph,
-                                nice_5_graph, nice_6_graph) 
-int_edglist <- get.edgelist(nodes_intersect)
-nodesint <- make_nodes_df(nodes_intersect, assay_list) %>%
-  mutate(process = factor(process, levels = c("ammonia_oxidation", "hydroxylamine_oxidation", "nitrite_oxidation",
-                                              "nitrite_reduction", "nitric_oxide_reduction", "nitrous_oxide_reduction", "n_fixation")),
-         pathway = factor(pathway, levels=c("nitrification", "denitrification", "comammox", "n_fixation")),
-         pathway = ordered(pathway)) %>%
-  filter(degrees > 0) %>%
-  as_tibble()
-######
 
 make_network_graph <- function(nodes, edgelist) {
 
@@ -147,7 +108,7 @@ make_network_graph <- function(nodes, edgelist) {
   }
   
   # map to the range you want
-  nodes$degrees <- normalise(nodes$degrees, to = c(3, 11))
+  nodes$degree <- normalise(nodes$degree, to = c(3, 11))
   
   # prepare data for edges
   graph.tidy <- tbl_graph(nodes = nodes_g, edges = as_tibble(edgelist), 
@@ -157,7 +118,7 @@ make_network_graph <- function(nodes, edgelist) {
     ggraph(graph.tidy, layout= "linear", circular=TRUE, sort=process) + 
     geom_edge_arc(alpha=0.1, fold=TRUE) + 
     scale_edge_width(range = c(0.2, 2)) +
-    geom_node_point(aes(size = I(degrees), color=gene_org)) +
+    geom_node_point(aes(size = I(degree), color=gene_org)) +
     scale_color_manual(values=pal) + 
     geom_node_text(aes(label = value), angle = 0, hjust = 0.5, 
                    nudge_y = -0.15, size = 2, fontface="bold") +   
@@ -169,39 +130,21 @@ make_network_graph <- function(nodes, edgelist) {
 
 }
 
-graph1 <- make_network_graph(nodes1, edgelist_1) + ggtitle("A")
-graph2 <- make_network_graph(nodes2, edgelist_2) + ggtitle("B")
-graph3 <- make_network_graph(nodes3, edgeList_3) + ggtitle("C")
-graph4 <- make_network_graph(nodes4, edgelist_4) + ggtitle("D")
-graph5 <- make_network_graph(nodes5, edgelist_5) + ggtitle("E")
-graph6 <- make_network_graph(nodes6, edgelist_6) + ggtitle("F")
-
-ggsave("graph1.tiff", plot=graph1, height=8, width=8)
-ggsave("graph2.tiff", plot=graph2, height=8, width=8)
-ggsave("graph3.tiff", plot=graph3, height=8, width=8)
-ggsave("graph4.tiff", plot=graph4, height=8, width=8)
-ggsave("graph5.tiff", plot=graph5, height=8, width=8)
-ggsave("graph6.tiff", plot=graph6, height=8, width=8)
 
 #arrange networks in one graph
-
-plot_grid(
-  # row 1
-  plot_grid(graph1, graph3, graph5, nrow = 1, labels = c('A', 'C', 'E')) +
-    theme(plot.background = element_rect(color = "black")),
-  
-  # row 2
-  plot_grid(graph2, graph4, graph6, nrow = 1, labels = c('B', 'D', 'F')) +
-    theme(plot.background = element_rect(color = "black")), 
-  
-  nrow = 2)
-
-plot.list <- lapply(list(graph1,graph3, graph5, graph2,graph4,  graph6), 
-                    function(p) p + theme(plot.background = element_rect(color = "black")))
-
-ggarrange(plotlist = plot.list)
-
-###consensus network graph###
-consensus_graph <- make_network_graph(nodesint, int_edglist)
-ggsave("consensus_network.tiff", dpi=300, height=4, width=4)
-
+# 
+# plot_grid(
+#   # row 1
+#   plot_grid(graph1, graph3, graph5, nrow = 1, labels = c('A', 'C', 'E')) +
+#     theme(plot.background = element_rect(color = "black")),
+#   
+#   # row 2
+#   plot_grid(graph2, graph4, graph6, nrow = 1, labels = c('B', 'D', 'F')) +
+#     theme(plot.background = element_rect(color = "black")), 
+#   
+#   nrow = 2)
+# 
+# plot.list <- lapply(list(graph1,graph3, graph5, graph2,graph4,  graph6), 
+#                     function(p) p + theme(plot.background = element_rect(color = "black")))
+# 
+# ggarrange(plotlist = plot.list)

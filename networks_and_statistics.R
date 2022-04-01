@@ -1,90 +1,134 @@
 library(tidyverse)
 library(igraph)
-library(Hmisc)
-library(corrr)
-setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/final_data")
-source("correlation_dataframes.R")
+source("intersection_networks.R")
+source("network_graphs.R")
 
-#Networks for each timepoint
-nice_1_graph <- nice_1_cor_df %>%
-  filter(abs(r) > 0.75) %>%
-  filter(p < 0.01) %>%
-  graph_from_data_frame(directed=FALSE) 
+#Rubona node attribute df
+r_1_nodes <- make_nodes_df(r_1_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint=1, location="Rubona") 
 
-nice_2_graph <- nice_2_cor_df %>%
-  filter(abs(r) > 0.75) %>%
-  filter(p < 0.01) %>%
-  graph_from_data_frame(directed=FALSE)
+r_2_nodes <- make_nodes_df(r_2_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint=2, location="Rubona") 
 
-nice_3_graph <- nice_3_cor_df %>%
-  filter(abs(r) > 0.75) %>%
-  filter(p<0.01) %>%
-  graph_from_data_frame(directed=FALSE)
+r_3_nodes <- make_nodes_df(r_3_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint=3, location="Rubona") 
 
-nice_4_graph <- nice_4_cor_df %>%
-  filter(abs(r) > 0.75) %>%
-  filter(p<0.01) %>%
-  graph_from_data_frame(directed=FALSE)
+r_4_nodes <- make_nodes_df(r_4_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint=4, location="Rubona") 
 
-nice_5_graph <- nice_5_cor_df %>%
-  filter(abs(r) > 0.75) %>%
-  filter(p<0.01) %>%
-  graph_from_data_frame(directed=FALSE)
+r_5_nodes <- make_nodes_df(r_5_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint=5, location="Rubona") 
 
-nice_6_graph <- nice_6_cor_df %>%
-  filter(abs(r) > 0.75) %>%
-  filter(p<0.01) %>%
-  graph_from_data_frame(directed=FALSE)
+r_6_nodes <- make_nodes_df(r_6_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint=6, location="Rubona") 
 
-#Network statistics for each network
-#network statistics
-#get edgelist
-edgelist_1 = get.edgelist(nice_1_graph)
-edgelist_2 = get.edgelist(nice_2_graph)
-edgeList_3 = get.edgelist(nice_3_graph)
-edgelist_4 = get.edgelist(nice_4_graph)
-edgelist_5 = get.edgelist(nice_5_graph)
-edgelist_6 = get.edgelist(nice_6_graph)
+#Karama node attribute df
+k_1_nodes <- make_nodes_df(k_1_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint = 1, location = "Karama")
 
-#get vertex labels
-#vlabels_1 = get.vertex.attribute(nice_1_graph)
+k_2_nodes <- make_nodes_df(k_2_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint = 2, location = "Karama")
+
+k_3_nodes <- make_nodes_df(k_3_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint = 3, location = "Karama")
+
+k_4_nodes <- make_nodes_df(k_4_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint = 4, location = "Karama")
+
+k_5_nodes <- make_nodes_df(k_5_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint = 5, location = "Karama")
+
+k_6_nodes <- make_nodes_df(k_6_graph, assay_list) %>%
+  select(primer_pair, degree, betweenness, closeness_centrality, pathway) %>%
+  mutate(timepoint = 6, location = "Karama")
+
+#bind all node data together
+all_nodes <- rbind(r_1_nodes, r_2_nodes, r_3_nodes, r_4_nodes, r_5_nodes, r_6_nodes,
+                   k_1_nodes, k_2_nodes, k_3_nodes, k_4_nodes, k_5_nodes, k_6_nodes)
+
+#rename pathway levels for plotting
+all_nodes$pathway <- recode(all_nodes$pathway, comammox = 'Comammox', 
+                        denitrification = 'Denitrification',
+                        n_fixation = 'N Fixation', nitrification = 'Nitrification')
+all_nodes <- all_nodes %>%
+  mutate(growth = case_when(timepoint==1 ~ "anthesis",
+                            timepoint==2 ~ "regrowth",
+                            timepoint==3 ~"anthesis",
+                            timepoint==4 ~ "regrowth",
+                            timepoint==5 ~ "anthesis", 
+                            timepoint ==6 ~ "regrowth"))
+
+#Investigating relationships between network statistics - linear relationships?
+summ <- all_nodes %>%
+  group_by(timepoint, growth) %>%
+  mutate(mean_degree = mean(degree)) %>%
+  ungroup()
+
+ggplot(summ, aes(x=timepoint, y=mean_degree, color=growth)) +
+  geom_point() + 
+  geom_line() +
+  theme_classic() +
+  ylab("Mean Degree") +
+  theme(legend.title=element_blank())
+
+degree_closeness <-
+  ggplot(all_nodes, aes(x=degree, y=closeness_centrality, color=pathway)) +
+  geom_point() +
+  theme_classic() +
+  scale_color_manual(values=c("#C18C5D", "#3A68AE", "#66A61E", "#C03830")) +
+ facet_wrap(~pathway) +
+  theme(legend.position = "none") +
+  geom_smooth(method="lm") +
+  ylab("Closeness Centrality") +
+  xlab("Normalized Node Degree")
 
 
-#get vertex fill color
-#vfill = get.vertex.attribute(nice_1_graph)
+degree_between <- 
+  ggplot(all_nodes, aes(x=degree, y=betweenness, color=pathway)) +
+  geom_point() +
+  theme_classic() +
+  scale_color_manual(values=c("#C18C5D", "#3A68AE", "#66A61E", "#C03830")) +
+  facet_wrap(~pathway) +
+  theme(legend.position = "none") +
+  geom_smooth(method="lm") +
+  ylab("Betweenness Centrality") +
+  xlab("Normalized Node Degree")
 
-#get vertext border color
-#vborders = get.vertex.attribute(nice_1_graph, "border")
+close_between <- 
+  ggplot(all_nodes, aes(x=closeness_centrality, y=betweenness, color=pathway)) +
+  geom_point() +
+  theme_classic() +
+  scale_color_manual(values=c("#C18C5D", "#3A68AE", "#66A61E", "#C03830")) +
+  facet_wrap(~pathway) +
+  theme(legend.position="none") +
+  geom_smooth(method="lm") +
+  ylab("Betweenness Centrality") +
+  xlab("Closeness Centrality")
 
-#get vertex degree
-degrees_1 = degree(nice_1_graph)
-degrees_2 = degree(nice_2_graph)
-degrees_3 = degree(nice_3_graph)
-degrees_4 = degree(nice_4_graph)
-degrees_5 = degree(nice_5_graph)
-degrees_6 = degree(nice_6_graph)
+plot.list <- list(degree_closeness,degree_between, close_between)
+      
+plot_arrange <- ggarrange(plotlist = plot.list)
 
-#get edge value
-evalues_1 = get.edge.attribute(nice_1_graph, "r")
-evalues_2 = get.edge.attribute(nice_2_graph, "r")
-evalues_3 = get.edge.attribute(nice_3_graph, "r")
-evalues_4 = get.edge.attribute(nice_4_graph, "r")
-evalues_5 = get.edge.attribute(nice_5_graph, "r")
-evalues_6 = get.edge.attribute(nice_6_graph, "r")
+ggsave(plot=plot_arrange, "network_statistics.tiff", dpi=300, width=10, height=10)
 
-#betweenness scores
-between_1 = betweenness(nice_1_graph, directed=FALSE)
-between_2 = betweenness(nice_2_graph, directed=FALSE)
-between_3 = betweenness(nice_3_graph, directed = FALSE)
-between_4 = betweenness(nice_4_graph, directed = FALSE)
-between_5 = betweenness(nice_5_graph, directed=FALSE)
-between_6 = betweenness(nice_6_graph, directed = FALSE)
 
-#get density 
-nice_1_dens <- edge_density(nice_1_graph, loops=FALSE) #0.908 -harvest 
-nice_2_dens <- edge_density(nice_2_graph, loops=FALSE) #0.544 -early growth
-nice_3_dens <- edge_density(nice_3_graph, loops=FALSE) #0.346 - harvest
-nice_4_dens <- edge_density(nice_4_graph, loops=FALSE) #0.949 - early growth
-nice_5_dens <- edge_density(nice_5_graph, loops=FALSE) #0.477 - harvest
-nice_6_dens <- edge_density(nice_6_graph, loops=FALSE) #0.345 - early growth
+# 
+# #get density 
+# nice_1_dens <- edge_density(nice_1_graph, loops=FALSE) #0.908 -harvest 
+# nice_2_dens <- edge_density(nice_2_graph, loops=FALSE) #0.544 -early growth
+# nice_3_dens <- edge_density(nice_3_graph, loops=FALSE) #0.346 - harvest
+# nice_4_dens <- edge_density(nice_4_graph, loops=FALSE) #0.949 - early growth
+# nice_5_dens <- edge_density(nice_5_graph, loops=FALSE) #0.477 - harvest
+# nice_6_dens <- edge_density(nice_6_graph, loops=FALSE) #0.345 - early growth
 
