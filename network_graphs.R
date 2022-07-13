@@ -14,10 +14,11 @@ options(warnings=-1)
 
 #Read in assay list: primer pairs, gene/org designation, pathway, process (function), unique hexcodes
 assay_list <- read_csv("assay_list_2.csv") %>%
-  select(c(gene_org, colorcode, pathway, process, primer_pair)) 
-assay_list$value <- assay_list$primer_pair
+  select(c(gene_org, colorcode, pathway, process, primer_pair, acronym)) 
+assay_list$value <- assay_list$acronym
 assay_list <- assay_list %>%
   unique()
+
 
 make_nodes_df <- function(graphobject, assay_list){
   
@@ -42,7 +43,7 @@ make_nodes_df <- function(graphobject, assay_list){
   
   degrees <- degree(graph) %>% as_tibble_col() %>% rename(degree = value)
   degreenames <- degree(graph) %>% as_tibble_row() 
-  names <- colnames(degreenames) %>% unlist() %>% as_tibble_col() %>% rename(primer_pair=value)
+  names <- colnames(degreenames) %>% unlist() %>% as_tibble_col() %>% rename(acronym=value)
 
   betweenness_dat <- betweenness(graph) %>%
     as_tibble_col() %>%
@@ -54,13 +55,13 @@ make_nodes_df <- function(graphobject, assay_list){
   betw_names <- colnames(betw_names) %>%
     unlist() %>%
     as_tibble_col() %>%
-    rename(primer_pair=value)
+    rename(acronym=value)
   
   closeness_dat <- closeness(graph) %>%
     as_tibble_col() %>% rename(closeness_centrality = value)
   
   close_names <- closeness(graph) %>% as_tibble_row() 
-  close_names <- colnames(close_names) %>% as_tibble_col() %>% rename(primer_pair=value)
+  close_names <- colnames(close_names) %>% as_tibble_col() %>% rename(acronym=value)
   
   degree_df <- bind_cols(degrees, names) 
   between_df <- bind_cols(betweenness_dat, betw_names)
@@ -69,7 +70,7 @@ make_nodes_df <- function(graphobject, assay_list){
 
   # data frame with groups, degree, labels and id
   nodes <- data.frame(process, pathway, graph_labels, color, gene_org, id=1:vcount(graph)) %>%
-    merge(all, by="primer_pair")
+    merge(all, by="acronym")
   
   return(nodes)
   
@@ -118,10 +119,10 @@ make_network_graph <- function(nodes, edgelist) {
     ggraph(graph.tidy, layout= "linear", circular=TRUE, sort=process) + 
     geom_edge_arc(alpha=0.1, fold=TRUE) + 
     scale_edge_width(range = c(0.2, 2)) +
-    geom_node_point(aes(size = I(degree), color=gene_org)) +
+    geom_node_point(aes(size = I(degree), color=gene_org), alpha=0.7) +
     scale_color_manual(values=pal) + 
     geom_node_text(aes(label = value), angle = 0, hjust = 0.5, 
-                   nudge_y = -0.15, size = 2, fontface="bold") +   
+                   nudge_y = -0.2, size = 2, fontface="bold") +   
     coord_cartesian(clip = "off") + 
     theme_graph() +
     theme(legend.position = "none") 

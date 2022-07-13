@@ -16,6 +16,8 @@ final_mat <- spread_mat[,(2:21)] %>%
 
 setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/final_data")
 
+assays <- read_csv("assay_list_2.csv") %>% select(primer_pair, acronym)
+
 nice <- read_csv("final_nice_std_data.csv") %>%
   select(assay, sample, log_conc_truesoil, primer_F, primer_R, location) %>%
   mutate(primer_pair = paste(primer_F, primer_R, sep= " / ")) %>%
@@ -25,15 +27,8 @@ nice <- read_csv("final_nice_std_data.csv") %>%
                                sample %in% 401:456 ~ 3, 
                                sample %in% 501:556 ~ 4,
                                sample %in% 601:656 ~ 5,
-                               sample %in% 701:756 ~ 6))
-
-#add filtering by location here?
-#nice_1 <- filter(nice, timepoint ==1) 
-#nice_2 <- filter(nice, timepoint ==2)
-#nice_3 <- filter(nice, timepoint ==3)
-#nice_4 <- filter(nice, timepoint ==4)
-#nice_5 <- filter(nice, timepoint ==5)
-#nice_6 <- filter(nice, timepoint ==6)
+                               sample %in% 701:756 ~ 6)) %>%
+  merge(assays, by="primer_pair")
 
 #loc x time graphs
 k_1 <- filter(nice, timepoint ==1 & location=="Karama")
@@ -57,9 +52,9 @@ r_6 <- filter(nice, timepoint ==6 & location=="Rubona")
 #get data into correct format for correlation analysis
 df_to_mat <- function(data) {
   data <- data %>%
-    select(-c(timepoint, assay, location))
+    select(-c(timepoint, assay, location, primer_pair))
   
-  spread_data <- spread(data, key=primer_pair, value=log_conc_truesoil) %>%
+  spread_data <- spread(data, key=acronym, value=log_conc_truesoil) %>%
     column_to_rownames('sample')
   
   return(spread_data)

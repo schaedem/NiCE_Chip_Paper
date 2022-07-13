@@ -39,13 +39,6 @@ setwd("/Volumes/Backup_1/Marie/Thesis/Rwanda/Lab work/03_NiCE_Chip/final_data")
                    "nirSC3F / nirSC3R","qnorB2F / qnorB7R", "qnorB2F / qnorB5R", "norB2 / norB6", "cnorB-2F / cnorB-6R", "nosZ1F / nosZ1R",
                    "nosZ-F-1181 / nosZR-1880","NosZ912F / NosZ853R"," nosZ-II-F / nosZ-II-R_")))
 
-#xmin <- c(0, 1.5, 12.5, 13.5)
-#xmax <- c(1.5, 12.5,13.5, Inf)
-#color <- c('#E0F4DA', '#F9E0DE', '#EDD9BA', '#DFEDFA')    
-#group <- c("n_fixation", "nitrification", "comammox", "denitrification")
-  
-#rects <- cbind(xmin, xmax, color, group) %>% as_tibble()
-
   plot <- ggplot(data=sum_dat, aes(x=primer_pair, y=mean_val, 
                                    group=interaction(timepoint, primer_pair),fill=as.factor(timepoint))) +
     geom_bar(stat="identity", position=position_dodge()) +

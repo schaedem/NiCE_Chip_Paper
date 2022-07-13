@@ -19,25 +19,12 @@ no_dup_nice_data <- nice_data %>%
   unique()
 
 #ready to join datasets
-
 full_nice_data <- no_dup_nice_data %>%
   full_join(std_16S_data, by=c("sample")) %>%
   mutate(adj_conc = conc*10,
          adj_conc_16S = conc_16S*10,
          adj_log_conc = log10(adj_conc),
          adj_log_conc_16S = log10(adj_conc_16S))
-
-weird1 <- full_nice_data %>%
-  filter(log_conc > log_conc_16S) #1034
-
-weird2 <- full_nice_data %>%
-  filter(conc > conc_16S) #1043
-
-weird3 <- full_nice_data %>%
-  filter(adj_conc > adj_conc_16S) #1043
-
-weird4 <- full_nice_data %>% #1043
-  filter(adj_log_conc > adj_log_conc_16S)
 
 #standardize to copies/g soil
 full_adj_df <- full_nice_data %>%
@@ -49,11 +36,32 @@ full_adj_df <- full_nice_data %>%
     log_conc_16S_truesoil = log10(conc_16S_truesoil)
   )
 
-weird5 <- full_adj_df %>% #1043
-  filter(log_conc_truesoil > log_conc_16S_truesoil)
+arch_16S <- full_adj_df %>%
+  filter(assay==2)
 
-weird6 <- full_adj_df %>% #1043
-  filter(conc_truesoil > conc_16S_truesoil)
+bact_df <- full_adj_df %>%
+  select(sample, log_conc_16S_truesoil) %>%
+  unique() %>%
+  mutate(acronym = "16S") %>%
+  rename(log_conc_truesoil = log_conc_16S_truesoil)
+
+arch_df <- full_adj_df %>%
+  select(sample, assay, log_conc_truesoil) %>%
+  filter(assay==2) %>%
+  mutate(acronym = "Arch_16S") %>%
+  select(-assay)
+
+abund_df <- full_join(bact_df, arch_df)
+write.csv(abund_df, "16S_data.csv")
+
+ggplot(arch_16S, aes(x=as.factor(timepoint), y=log_conc_truesoil)) +
+  geom_boxplot()
+
+ggplot(arch_16S, aes(x=as.factor(timepoint), y=log_conc_16S_truesoil)) +
+  geom_boxplot()
+
+write.csv(full_adj_df, "full_adj_df.csv")
+
 
 #include 16S archaea in abundance standardization
 

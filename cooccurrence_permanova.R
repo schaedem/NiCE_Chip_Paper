@@ -15,9 +15,9 @@ set.seed(344)
 env_data <- SNCAnalysis::full_dat %>%
   subset(select= c(timepoint, location, sample))
 
-nice_all <- rbind(nice_1, nice_2, nice_3, nice_4, nice_5, nice_6) %>%
+nice_all <- rbind(r_1, k_1, r_2, k_2, r_3, k_3, r_4, k_4, r_5, k_5, r_6, k_6) %>%
   select(-assay) %>%
-  merge(full_dat, by=c("sample", "timepoint"))
+  merge(full_dat, by=c("sample", "timepoint", "location"))
 
 nice_spread <- nice_all %>%
   pivot_wider(id_cols = c(sample, timepoint, treatment, location, block),  
@@ -54,8 +54,9 @@ trts<-as.vector((unique((nice_all$timepoint))))
 nice_cocur_dist<-spearman.dist(data.matrix(nice_cocur[,-c(1:2)]))
 
 #PERMANOVA
-adonis(nice_cocur_dist~nice_cocur$timepoint, permutations=9999) 
-#timepoint highly sig (p=1e-4)
+set.seed(222)
+test <- adonis(nice_cocur_dist~nice_cocur$timepoint, permutations=9999) 
+summary(test)#timepoint highly sig (p=1e-4; R2=0.13768)
 
 #NMDS
 set.seed(213)
@@ -66,7 +67,7 @@ stressplot(nice_mds)
 #Repeat same process to test whether co-occurrence relationships differ by location
 Rub_dist <-dcast(subset(nice_melt, location=="Rubona"), location+primer~sample, value="value") 
 Kar_dist <- dcast(subset(nice_melt, location=="Karama"), location+primer~sample, value="value")%>%
-  mutate("246"="NA")
+  mutate("246"="NA") #missing data point
 
 Kar_dist <- Kar_dist[,c(1:19,170,20:169)]
 
@@ -82,7 +83,7 @@ loc_cocur_dist<-spearman.dist(data.matrix(loc_cocur[,-c(1:2)]))
 #PERMANOVA
 set.seed(223)
 adonis(loc_cocur_dist~loc_cocur$location, permutations=9999) 
-#loc highly sig (p=1e-4)
+#loc highly sig (p=1e-4; R2=0.45433)
 
 #NMDS
 set.seed(213)
@@ -133,7 +134,6 @@ loc_time_cocur_dist<-spearman.dist(data.matrix(loc_time_cocur[,-c(1:3)]))
 set.seed(222)
 adonis(loc_time_cocur_dist~timepoint*location,data=loc_time_cocur, permutations=9999) 
 #loc and timepoint both highly sig (p=1e-4)
-#loc:block interaction also sig (p=1e-4)
 #suggests that locations should be analyzed separately for each timepoint
 
 #NMDS

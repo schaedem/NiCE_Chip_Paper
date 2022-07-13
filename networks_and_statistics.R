@@ -93,7 +93,6 @@ degree_closeness <-
   ylab("Closeness Centrality") +
   xlab("Normalized Node Degree")
 
-
 degree_between <- 
   ggplot(all_nodes, aes(x=degree, y=betweenness, color=pathway)) +
   geom_point() +
@@ -122,13 +121,4 @@ plot_arrange <- ggarrange(plotlist = plot.list)
 
 ggsave(plot=plot_arrange, "network_statistics.tiff", dpi=300, width=10, height=10)
 
-
-# 
-# #get density 
-# nice_1_dens <- edge_density(nice_1_graph, loops=FALSE) #0.908 -harvest 
-# nice_2_dens <- edge_density(nice_2_graph, loops=FALSE) #0.544 -early growth
-# nice_3_dens <- edge_density(nice_3_graph, loops=FALSE) #0.346 - harvest
-# nice_4_dens <- edge_density(nice_4_graph, loops=FALSE) #0.949 - early growth
-# nice_5_dens <- edge_density(nice_5_graph, loops=FALSE) #0.477 - harvest
-# nice_6_dens <- edge_density(nice_6_graph, loops=FALSE) #0.345 - early growth
 
