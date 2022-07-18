@@ -74,10 +74,3 @@ all_rsum <- rbind(rsum_1, rsum_2, rsum_3, rsum_4, rsum_5, rsum_6)
 lrr <- c(0.2, 0.73, 0.51, 0.37, 0.69, -0.11)
 dens <- c(0.83, 0.28, 0.46, 0.42, 0.25, 0.38)
 
-plot(lrr~dens)
-#3. LRR with LRRi()
-#RR is the ratio between the mean outcomes of each network
-#LRR is the natural log of the RR. 0 corresponds to null hypothesis (?)
-#LRR > 1 indicates that the network has 'small world properties': 
-#the network is more connected than would be expected at random
-#What does LRR < 1 indicate?
