@@ -21,7 +21,13 @@ Code to make dataframes for each location x timepoint which included all pairwis
 ### full_dat.Rdata:
 final data used in analysis plus metadata (R data object)
 
+### networks_and_statistics.R:
+compile network statistics into dfs for easy plotting
+
 ## Analysis Files
+
+### intersection_networks.R:
+Create graphs for each loc x timepoint, then find the interesection of those graphs. Calculate network statistics for each intersection graph. 
 
 ### erdos_renyi_random_graphs.R:
 random network statistics for Table 2
@@ -37,6 +43,12 @@ network statistics for supplemental table 4
 
 ### coccurrence_dbRDA_2.R:
 Fig 3
+
+### network_graphs.R: 
+Base functions to generate network graphs for Fig 4
+
+### intersection_networks.R:
+Generate individual network graphs and collate for Fig 4
 
 ### intersection_graph_betweenness_closeness.R:
 Fig 5
