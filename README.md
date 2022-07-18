@@ -26,6 +26,9 @@ compile network statistics into dfs for easy plotting
 
 ## Analysis Files
 
+### permanova_community_differences.R:
+Significance testing for differences in N cycle gene structure - analysis for Fig 2
+
 ### intersection_networks.R:
 Create graphs for each loc x timepoint, then find the interesection of those graphs. Calculate network statistics for each intersection graph. 
 
