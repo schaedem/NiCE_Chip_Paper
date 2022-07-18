@@ -12,6 +12,9 @@ processed data from HT-qPCR. Raw gene abundances (conc) were transformed to log1
 ### assay_list_2.csv: 
 metadata for HT-qPCR assays, including target gene/organism (gene_org), enzymatic pathway (pathway), color for graphing (colorcode), and abbreviation for manusript (acronym)
 
+### nice_matrix.Rdata:
+Matrix format of normalized gene abundances (log_conc_truesoil), pre-requisite for Spearman dissimilarity matrix (R data object)
+
 ### dist_spearman.Rdata:
 Spearman dissimilarity matrix (all timepoints, both locations) used to construct networks and perform multivariate analyses (R data object)
 
