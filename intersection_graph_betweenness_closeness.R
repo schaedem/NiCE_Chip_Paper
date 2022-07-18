@@ -52,37 +52,8 @@ between_t_4_int <- between_df(graph_t_4_int) %>% mutate(timepoint="4", date=lubr
 between_t_5_int <- between_df(graph_t_5_int) %>% mutate(timepoint="5", date=lubridate::mdy("01/19/2021"))
 between_t_6_int <- between_df(graph_t_6_int) %>% mutate(timepoint="6", date=lubridate::mdy("02/10/2021"))
 
-between_boxplot <- function(between_graph) {
- graph <- between_graph
-  plot <- 
-   ggplot(data=graph, aes(x=reorder(acronym, betweenness), y=betweenness, 
-                                 fill=acronym)) +
-  geom_bar(stat="identity") +
-  theme_classic() +
-  coord_flip() +
-  theme(legend.position = "none") +
-  scale_fill_manual(values= graph$colorcode)+
-  ylab("Betweenness") +
-  xlab("")
- 
- return(plot)
 
-}
-
-between_plot_1 <- between_boxplot(between_t_1_int)  + ggtitle("1")
-between_plot_2 <- between_boxplot(between_t_2_int)  + ggtitle("2")
-between_plot_3 <- between_boxplot(between_t_3_int)  + ggtitle("3")
-between_plot_4 <- between_boxplot(between_t_4_int)  + ggtitle("4")
-between_plot_5 <- between_boxplot(between_t_5_int)  + ggtitle("5")
-between_plot_6 <- between_boxplot(between_t_6_int)  + ggtitle("6")
-
-
-plot.list <- lapply(list(between_plot_1, between_plot_2, between_plot_3, between_plot_4,
-                         between_plot_5, between_plot_6), 
-                    function(p) p + theme(plot.background = element_rect(color = "white")))
-ggarrange(plotlist = plot.list)
-
-#alternative to faceted box plots: time/line plot
+#Plot
 all_between <- rbind(between_t_1_int, between_t_2_int, between_t_3_int,
                      between_t_4_int, between_t_5_int, between_t_6_int) %>%
   full_join(close_all, by=c('acronym', 'timepoint')) %>%
@@ -122,21 +93,6 @@ betweenness_time_plot <-
 betweenness_time_plot
 ggsave("betweenness_plot.tiff", plot=betweenness_time_plot, height=6, width=10)
 
-
-closeness_time_plot <-
-  ggplot(data=all_between, aes(x=date, y=closeness_centrality, color=acronym, 
-                               group=acronym, reorder(process, acronym))) +
-  geom_point(size=3) +
-  geom_path() +
-  theme_classic() +
-  scale_color_manual(values=pal) +
-  facet_wrap(~pathway) +
-  theme(legend.title = element_blank(), legend.position="bottom") +
-  ylab("Closeness Centrality") +
-  xlab("") 
-closeness_time_plot
-
-head(all_between)
 
 #find keystones based on betweenness, centrality, degree
 keystone_df <- all_between %>%
@@ -207,22 +163,6 @@ pal2 <- all_keystone_time %>%
 
 pal3 <- pal2[[2]]
 
-keystone_closeness_time_plot <-
-  ggplot(data=all_keystone_time, aes(x=date, y=closeness_centrality, color=acronym, 
-                               group=acronym, reorder(process,acronym))) +
-  geom_point(size=3) +
-  geom_line() +
-  theme_classic() +
-  scale_color_manual(values=pal3) +
-  facet_wrap(~pathway) +
-  theme(legend.title = element_blank(), legend.position="bottom") +
-  ylab("Closeness Centrality") +
-  xlab("") 
-keystone_closeness_time_plot 
-
-ggsave("closeness_plot_simplified.tiff", plot=keystone_closeness_time_plot, height=6, width=10)
-
-
 keystone_betweenness_time_plot <-
   ggplot(data=all_keystone_time, aes(x=date, y=betweenness, color=acronym, 
                                      group=acronym, reorder(process, acronym))) +
@@ -236,27 +176,4 @@ keystone_betweenness_time_plot <-
   xlab("") 
 keystone_betweenness_time_plot
 ggsave("betweenness_plot_simplified.tiff", plot=keystone_betweenness_time_plot, height=6, width=10)
-
-
-#	Gamo172_F1 / Gamo172_F1_R2 & haoF4 / haoR2
-#t5: nirK876 / nirK1040
-#t2:norB2 / norB6
-
-summ <- all_keystone_time %>%
-  group_by(pathway) %>%
-  summarise(mean(betweenness))
-
-keystone_degree_time_plot <-
-  ggplot(data=all_keystone_time, aes(x=date, y=degree, color=acronym, 
-                                     group=acronym, reorder(acronym))) +
-  geom_point(size=3) +
-  geom_line(na.rm=TRUE) +
-  theme_classic() +
-  scale_color_manual(values=pal3) +
-  facet_wrap(~pathway) +
-  theme(legend.title = element_blank(), legend.position="bottom") +
-  ylab("Normalized node degree") +
-  xlab("") 
-keystone_degree_time_plot
-ggsave("degree_plot_simplified.tiff", plot=keystone_degree_time_plot, height=6, width=10)
 
