@@ -27,7 +27,7 @@ compile network statistics into dfs for easy plotting
 ## Analysis Files
 
 ### permanova_community_differences.R:
-Significance testing for differences in N cycle gene structure - analysis for Fig 2
+Significance testing for differences in N cycle gene structure - pre-requisite for co-occurrence analysis
 
 ### intersection_networks.R:
 Create graphs for each loc x timepoint, then find the interesection of those graphs. Calculate network statistics for each intersection graph. 
@@ -37,12 +37,16 @@ random network statistics for Table 2
 
 ### permanova_community_differences.R
 
-### cooccurrence_permanova_method2.R
+### cooccurrence_permanova_method2.R:
+Analysis for Fig 2
 
 ### supplemental_network_stats.R:
 network statistics for supplemental table 4
 
 ## Figures
+
+### cooccurrence_permanova_method2.R:
+Fig 2
 
 ### coccurrence_dbRDA_2.R:
 Fig 3
