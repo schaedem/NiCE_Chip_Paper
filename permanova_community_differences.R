@@ -113,49 +113,4 @@ set.seed(123)
 # growth_adonis <- adonis2(dist~growth, data=adonis_merge)
 # #growth sig, R2=0.03028, P=0.002; likely conflated with other env variables
 # 
-# #NMDS plots
-# set.seed(100192)
-# nmds <- metaMDS(dist)
-# 
-# nmds_plot <- scores(nmds) %>%
-#   as_tibble(rownames="sample") %>%
-#   merge(meta, by="sample")
-# 
-# abund_nmds_growth <- 
-#   ggplot(data=nmds_plot, aes(x=NMDS1, y=NMDS2, color=growth)) + 
-#   geom_point(alpha=0.8) + 
-#   theme_classic() +
-#   scale_color_brewer(palette="Set2") +
-#   theme(legend.title=element_blank())
-# abund_nmds_growth
-# 
-# abund_nmds_time <- 
-#   ggplot(data=nmds_plot, aes(x=NMDS1, y=NMDS2, color=as.factor(timepoint))) + 
-#   geom_point() + 
-#   theme_classic() +
-#   viridis::scale_color_viridis(discrete="TRUE", name="Timepoint")
-# abund_nmds_time
-# 
-# abund_nmds_plant <-
-#   ggplot(data=nmds_plot, aes(x=NMDS1, y=NMDS2, color=treatment)) + 
-#   geom_point(alpha=0.8) + 
-#   theme_classic() +
-#   scale_color_brewer(palette="Dark2") +
-#   theme(legend.title=element_blank())
-# abund_nmds_plant
-# 
-# abund_nmds_loc <- 
-#   ggplot(data=nmds_plot, aes(x=NMDS1, y=NMDS2, color=location)) + 
-#   geom_point(alpha=0.8) + 
-#   theme_classic() +
-#   scale_color_brewer(palette="Set1") +
-#   theme(legend.title=element_blank())
-# abund_nmds_loc
-# 
-# abund_nmds_gwc <- 
-#   ggplot(data=nmds_plot, aes(x=NMDS1, y=NMDS2, color=gwc)) +
-#   geom_point(alpha=0.8) +
-#   theme_classic() +
-#   viridis::scale_color_viridis(option="B", name="GWC") 
-# abund_nmds_gwc
 
