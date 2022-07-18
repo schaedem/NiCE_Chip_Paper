@@ -3,11 +3,11 @@ Contains data and code to generate figures/analysis for Schaedel et al. (in revi
 
 ## Data Files
 
-## 16S_data.csv: 
+### 16S_data.csv: 
 16S rRNA abundance as assessed by conventional qPCR
 
 
-## NiCE_clean_data.csv: 
+### NiCE_clean_data.csv: 
 processed data from HT-qPCR. Gene abundances normalized to log10 (log_conc) were used in subsequent analyses
 
 ## Analysis Files
