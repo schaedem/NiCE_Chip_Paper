@@ -1,5 +1,5 @@
 # NiCE_Chip_Paper
-Contains data and code to generate figures/analysis for Schaedel et al. (in review): <i> Temporal assessment of N-cycle microbial functions in a tropical agricultural soil using gene co-occurrence networks </i>
+Contains data and code to generate figures/analysis for Schaedel et al. (2023) in _PLOS ONE_: <i> Temporal assessment of N-cycle microbial functions in a tropical agricultural soil using gene co-occurrence networks </i>
 
 ## Data Files & Data Wrangling
 
